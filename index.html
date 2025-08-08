@@ -154,7 +154,7 @@
     <div class="fixed-header">
         <div class="header-content">
             <div class="app-header" style="text-align: center; margin: 0; padding: 0;">
-                <h1 class="app-title" style="margin: 5px 0 0 0; padding: 0; font-size: 16px; line-height: 1.0; display: inline-block;">📧 メルマガ効率化ツール v0.42</h1>
+                <h1 class="app-title" style="margin: 5px 0 0 0; padding: 0; font-size: 16px; line-height: 1.0; display: inline-block;">📧 メルマガ効率化ツール v0.43</h1>
                 <p class="app-subtitle" style="margin: 0; padding: 0; font-size: 10px; line-height: 1.0; display: inline-block; vertical-align: top; margin-left: 8px;">テキスト重複検出システム - Firebase + Google認証</p>
             </div>
             <!-- ログイン/ログアウトセクション -->
@@ -512,13 +512,19 @@
         auth.onAuthStateChanged((user) => {
             currentUser = user;
             if (user) {
-                log(`✅ ログイン成功: ${user.displayName}`);
+                log(`✅ 認証状態変更: ログイン中`);
+                log(`   UID: ${user.uid}`);
+                log(`   表示名: ${user.displayName || '未設定'}`);
+                log(`   メール: ${user.email || '未設定'}`);
+                log(`   プロバイダ: ${user.providerData?.[0]?.providerId || '不明'}`);
                 showUserInterface(user);
                 loadUserFileData();
             } else {
                 // 初回読み込み時はログアウトメッセージを表示しない
                 if (!isInitialLoad) {
                     log('❌ ログアウトしました');
+                } else {
+                    log('ℹ️ 認証状態: 未ログイン');
                 }
                 showLoginInterface();
             }
@@ -971,7 +977,10 @@
             document.getElementById('authSection').classList.add('hidden');
             document.getElementById('userInfo').classList.remove('hidden');
             document.getElementById('weightInput').classList.remove('hidden');
-            document.getElementById('userName').textContent = user.displayName;
+            // ユーザー名を表示（メールアドレスをフォールバック）
+            const displayName = user.displayName || user.email || 'ユーザー';
+            document.getElementById('userName').textContent = displayName;
+            log(`👤 表示名: ${displayName}, メール: ${user.email}`);
             
             // ドラッグ&ドロップ機能を初期化
             setupDragAndDrop();
