@@ -154,7 +154,7 @@
     <div class="fixed-header">
         <div class="header-content">
             <div class="app-header" style="text-align: center; margin: 0; padding: 0;">
-                <h1 class="app-title" style="margin: 5px 0 0 0; padding: 0; font-size: 16px; line-height: 1.0; display: inline-block;">📧 メルマガ効率化ツール v0.43</h1>
+                <h1 class="app-title" style="margin: 5px 0 0 0; padding: 0; font-size: 16px; line-height: 1.0; display: inline-block;">📧 メルマガ効率化ツール v0.44</h1>
                 <p class="app-subtitle" style="margin: 0; padding: 0; font-size: 10px; line-height: 1.0; display: inline-block; vertical-align: top; margin-left: 8px;">テキスト重複検出システム - Firebase + Google認証</p>
             </div>
             <!-- ログイン/ログアウトセクション -->
@@ -486,13 +486,15 @@
         auth.getRedirectResult()
             .then((result) => {
                 if (result.user) {
-                    log(`✅ リダイレクトログイン成功: ${result.user.displayName}`);
+                    log(`✅ リダイレクトログイン成功: ${result.user.displayName || result.user.email}`);
                     log(`📧 メール: ${result.user.email}`);
+                    log(`🆔 UID: ${result.user.uid}`);
                     // 明示的にユーザーインターフェースを表示
+                    currentUser = result.user;
                     showUserInterface(result.user);
                     loadUserFileData();
                 } else {
-                    log('ℹ️ リダイレクト結果: ユーザー情報なし');
+                    log('ℹ️ リダイレクト結果: 認証情報なし（通常のページ読み込み）');
                 }
             })
             .catch((error) => {
@@ -524,7 +526,7 @@
                 if (!isInitialLoad) {
                     log('❌ ログアウトしました');
                 } else {
-                    log('ℹ️ 認証状態: 未ログイン');
+                    log('ℹ️ 認証状態を確認中...');
                 }
                 showLoginInterface();
             }
