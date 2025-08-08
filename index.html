@@ -32,6 +32,53 @@
         .logout-button { background: #dc3545; color: white; border: none; padding: 8px 16px; border-radius: 5px; cursor: pointer; margin: 5px; }
         .data-area { background: #f8f9fa; border: 1px solid #dee2e6; padding: 8px; border-radius: 5px; font-family: monospace; min-height: 120px; }
         .hidden { display: none; }
+        
+        /* ポップアップのスタイル */
+        .popup-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+        .popup-content {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        .back-number-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background: #f9f9f9;
+        }
+        .back-number-item.registered {
+            background: #d4edda;
+            border-color: #28a745;
+        }
+        .close-popup {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            float: right;
+            margin-top: 10px;
+        }
         .user-info { background: #d4edda; color: #155724; padding: 6px; border-radius: 5px; margin-bottom: 8px; }
         
         /* 固定ヘッダーのスタイル */
@@ -227,6 +274,7 @@
                             <li>⚙️ 詳細設定</li>
                             <li>📈 分析レポート</li>
                         </ul>
+                        <button class="save-button" onclick="showBackNumberList()" style="margin-top: 10px; background: #17a2b8;">📋 Back Number 一覧</button>
                         <button class="save-button" onclick="log('📋 その他機能タブがクリックされました')" style="margin-top: 10px;">テスト機能</button>
                     </div>
                 </div>
@@ -1350,6 +1398,144 @@ ${document.getElementById('logArea').innerText}`;
                 document.body.removeChild(textArea);
                 alert('✅ デバッグ情報をコピーしました');
             });
+        };
+
+        // Back Number一覧表示機能
+        window.showBackNumberList = () => {
+            if (!currentUser) {
+                alert('ログインが必要です');
+                return;
+            }
+            
+            log('📋 Back Number一覧を表示中...');
+            
+            // 共有データから全ての保存済みファイルを取得
+            const sharedRef = database.ref('common/files');
+            sharedRef.once('value', (snapshot) => {
+                const data = snapshot.val() || {};
+                const entries = Object.entries(data);
+                
+                // Vol番号を抽出
+                const registeredVolNumbers = new Set();
+                let maxVolNumber = 0;
+                
+                entries.forEach(([key, entry]) => {
+                    // Vol番号抽出ロジック（既存のロジックを再利用）
+                    const volPatterns = [
+                        { pattern: /vol\.?\s*(\d{4})/gi, priority: 1, desc: 'vol.XXXX形式' },
+                        { pattern: /(\d{4})号/g, priority: 2, desc: 'XXXX号形式' },
+                        { pattern: /第(\d{4})号/g, priority: 2, desc: '第XXXX号形式' },
+                        { pattern: /no\.?\s*(\d{4})/gi, priority: 3, desc: 'No.XXXX形式' },
+                        { pattern: /vol\.?\s*(\d{3})/gi, priority: 4, desc: 'vol.XXX形式' },
+                        { pattern: /(\d{3})号/g, priority: 5, desc: 'XXX号形式' },
+                        { pattern: /第(\d{3})号/g, priority: 5, desc: '第XXX号形式' },
+                        { pattern: /no\.?\s*(\d{3})/gi, priority: 6, desc: 'No.XXX形式' }
+                    ];
+                    
+                    const targets = [
+                        { text: entry.fileName || '', desc: 'ファイル名' },
+                        { text: (entry.content || '').substring(0, 500), desc: '内容前半' }
+                    ];
+                    
+                    let foundMatches = [];
+                    
+                    volPatterns.forEach(pattern => {
+                        targets.forEach(target => {
+                            if (target.text) {
+                                let match;
+                                pattern.pattern.lastIndex = 0;
+                                while ((match = pattern.pattern.exec(target.text)) !== null) {
+                                    const number = parseInt(match[1]);
+                                    const formatted = match[1].length === 3 ? 
+                                        String(number).padStart(3, '0') : 
+                                        String(number).padStart(4, '0');
+                                    
+                                    foundMatches.push({
+                                        number: number,
+                                        formatted: formatted,
+                                        priority: pattern.priority,
+                                        pattern: pattern.desc,
+                                        source: target.desc
+                                    });
+                                }
+                            }
+                        });
+                    });
+                    
+                    if (foundMatches.length > 0) {
+                        foundMatches.sort((a, b) => {
+                            if (a.priority !== b.priority) {
+                                return a.priority - b.priority;
+                            }
+                            return b.number - a.number;
+                        });
+                        
+                        const volNumber = parseInt(foundMatches[0].formatted);
+                        registeredVolNumbers.add(volNumber);
+                        maxVolNumber = Math.max(maxVolNumber, volNumber);
+                    }
+                });
+                
+                log(`📊 登録済みVol数: ${registeredVolNumbers.size}, 最大Vol: ${maxVolNumber}`);
+                
+                // 上位5件のVol番号を生成（最大から降順）
+                const displayNumbers = [];
+                for (let i = maxVolNumber; i >= Math.max(1, maxVolNumber - 4); i--) {
+                    const status = registeredVolNumbers.has(i) ? '✅' : '❌';
+                    const volString = String(i).padStart(4, '0');
+                    displayNumbers.push({
+                        vol: volString,
+                        registered: registeredVolNumbers.has(i),
+                        status: status
+                    });
+                }
+                
+                // ポップアップを表示
+                const popupHtml = `
+                    <div class="popup-overlay" id="backNumberPopup">
+                        <div class="popup-content">
+                            <h3>📋 Back Number 一覧 (上位5件)</h3>
+                            <div style="margin: 20px 0;">
+                                ${displayNumbers.map(item => `
+                                    <div class="back-number-item ${item.registered ? 'registered' : ''}" style="
+                                        padding: 10px; 
+                                        margin: 5px 0; 
+                                        border: 1px solid #ddd; 
+                                        border-radius: 5px;
+                                        display: flex;
+                                        justify-content: space-between;
+                                        ${item.registered ? 'background: #d4edda; border-color: #28a745;' : 'background: #f8d7da; border-color: #dc3545;'}
+                                    ">
+                                        <span>Vol.${item.vol}</span>
+                                        <span style="font-size: 16px;">${item.status}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                            <p style="font-size: 12px; color: #666;">
+                                ✅: 登録済み / ❌: 未登録<br>
+                                表示範囲: Vol.${displayNumbers[displayNumbers.length-1]?.vol} ～ Vol.${displayNumbers[0]?.vol}
+                            </p>
+                            <button class="close-popup" onclick="closeBackNumberPopup()">閉じる</button>
+                        </div>
+                    </div>
+                `;
+                
+                // ポップアップをDOMに追加
+                document.body.insertAdjacentHTML('beforeend', popupHtml);
+                log('✅ Back Number一覧表示完了');
+            }).catch((error) => {
+                log(`❌ Back Number一覧取得エラー: ${error.message}`);
+                alert('Back Number一覧の取得に失敗しました');
+            });
+        };
+        
+        // Back Number一覧ポップアップを閉じる
+        window.closeBackNumberPopup = () => {
+            const popup = document.getElementById('backNumberPopup');
+            if (popup) {
+                popup.remove();
+                log('🔍 Back Number一覧ポップアップを閉じました');
+            }
         };
 
         // 初期化

@@ -5,7 +5,7 @@
 export const APP_CONFIG = {
     // アプリの基本情報（自由に変更可能）
     name: "メルマガ効率化ツール",
-    version: "0.4",
+    version: "0.41",
     description: "Firebase + Google認証によるメルマガ効率化システム",
     
     // デフォルト値設定（カスタマイズ可能）
