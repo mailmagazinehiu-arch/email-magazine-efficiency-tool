@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Firebase認証テスト（動作確認済み設定）</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+</head>
+<body>
+    <h1>動作確認済みFirebaseでテスト</h1>
+    <button onclick="testLogin()">Googleログイン</button>
+    <button onclick="logout()">ログアウト</button>
+    <div id="status">未ログイン</div>
+
+    <script>
+        // shares-b1b97 (stretch-trackerで動作確認済み)
+        const firebaseConfig = {
+            apiKey: "AIzaSyA5PXKChizYDCXF_GJ4KL6Ylq9K5hCPXWE",
+            authDomain: "shares-b1b97.firebaseapp.com",
+            projectId: "shares-b1b97"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+
+        // 認証状態の監視
+        auth.onAuthStateChanged(user => {
+            const status = document.getElementById('status');
+            if (user) {
+                status.innerHTML = `✅ ログイン中: ${user.email}`;
+            } else {
+                status.innerHTML = '❌ 未ログイン';
+            }
+        });
+
+        async function testLogin() {
+            try {
+                const provider = new firebase.auth.GoogleAuthProvider();
+                const result = await auth.signInWithPopup(provider);
+                console.log('成功:', result.user.email);
+            } catch (error) {
+                console.error('エラー:', error);
+                alert(`エラー: ${error.code}\n${error.message}`);
+            }
+        }
+
+        async function logout() {
+            await auth.signOut();
+        }
+    </script>
+</body>
+</html>
