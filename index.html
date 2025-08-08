@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="google-site-verification" content="MmDuEoCEfQOGu2UAXCKrZtbgxWBJRCX3sdTkWhVaSe4" />
-    <title>メルマガ効率化ツール v0.47</title>
+    <title>メルマガ効率化ツール</title>
     
     <!-- カスタムスタイル -->
     <link rel="stylesheet" href="custom/styles.css">
@@ -154,7 +154,7 @@
     <div class="fixed-header">
         <div class="header-content">
             <div class="app-header" style="text-align: center; margin: 0; padding: 0;">
-                <h1 class="app-title" style="margin: 5px 0 0 0; padding: 0; font-size: 16px; line-height: 1.0; display: inline-block;">📧 メルマガ効率化ツール v0.47</h1>
+                <h1 class="app-title" style="margin: 5px 0 0 0; padding: 0; font-size: 16px; line-height: 1.0; display: inline-block;">📧 メルマガ効率化ツール <span id="versionDisplay"></span></h1>
                 <p class="app-subtitle" style="margin: 0; padding: 0; font-size: 10px; line-height: 1.0; display: inline-block; vertical-align: top; margin-left: 8px;">テキスト重複検出システム - Firebase + Google認証</p>
             </div>
             <!-- ログイン/ログアウトセクション -->
@@ -333,6 +333,20 @@
     </div>
 
     <script>
+        // アプリバージョン（ここだけ変更すればタイトルとヘッダーが自動更新）
+        const APP_VERSION = '0.32';
+        
+        // バージョンを表示
+        document.addEventListener('DOMContentLoaded', () => {
+            // タイトルにバージョン追加
+            document.title = `メルマガ効率化ツール v${APP_VERSION}`;
+            // ヘッダーにバージョン表示
+            const versionDisplay = document.getElementById('versionDisplay');
+            if (versionDisplay) {
+                versionDisplay.textContent = `v${APP_VERSION}`;
+            }
+        });
+        
         // Core Firebase設定（変更禁止 - core/src/firebase-config.js参照）
         const firebaseConfig = {
             apiKey: "AIzaSyD8Z9OgiYC4jiqhsW6I4uCWcO97hHVVFi4",
