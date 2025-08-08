@@ -481,6 +481,23 @@
             log(`⏰ 測定タイミング選択: ${timing}`);
         };
 
+        // リダイレクト結果の処理（モバイル対応）
+        auth.getRedirectResult()
+            .then((result) => {
+                if (result.user) {
+                    log(`✅ リダイレクトログイン成功: ${result.user.displayName}`);
+                }
+            })
+            .catch((error) => {
+                if (error.code && error.code !== 'auth/no-auth-event') {
+                    log(`❌ リダイレクトエラー: ${error.code} - ${error.message}`);
+                    if (error.code === 'auth/operation-not-supported-in-this-environment' || 
+                        error.code === 'auth/unauthorized-domain') {
+                        alert('このブラウザ環境ではGoogleログインがサポートされていません。\nデスクトップサイトモードをお試しください。');
+                    }
+                }
+            });
+
         // 認証状態の監視
         auth.onAuthStateChanged((user) => {
             currentUser = user;
@@ -499,10 +516,24 @@
             try {
                 log('🔐 Googleログイン開始...');
                 const provider = new firebase.auth.GoogleAuthProvider();
-                const result = await auth.signInWithPopup(provider);
-                log(`✅ ログイン成功: ${result.user.displayName}`);
+                
+                // モバイルブラウザの検出
+                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                
+                if (isMobile) {
+                    // モバイルの場合はsignInWithRedirectを使用
+                    log('📱 モバイルブラウザ検出 - リダイレクト方式を使用');
+                    await auth.signInWithRedirect(provider);
+                } else {
+                    // PCの場合は従来のポップアップを使用
+                    const result = await auth.signInWithPopup(provider);
+                    log(`✅ ログイン成功: ${result.user.displayName}`);
+                }
             } catch (error) {
                 log(`❌ ログインエラー: ${error.message}`);
+                if (error.code === 'auth/operation-not-supported-in-this-environment') {
+                    alert('このブラウザ環境ではGoogleログインがサポートされていません。\n別のブラウザをお試しください。');
+                }
             }
         };
 
