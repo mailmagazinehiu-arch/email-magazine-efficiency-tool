@@ -917,7 +917,7 @@
             try {
                 log(`🔍 キーワード「${keyword}」で検索開始...`);
                 
-                const userRef = database.ref(`users/${currentUser.uid}/files`);
+                const userRef = database.ref(`common/files`);
                 const snapshot = await userRef.once('value');
                 const data = snapshot.val();
                 
