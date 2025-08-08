@@ -523,6 +523,15 @@
                 if (isMobile) {
                     // モバイルの場合はsignInWithRedirectを使用
                     log('📱 モバイルブラウザ検出 - リダイレクト方式を使用');
+                    
+                    // User-Agentをオーバーライドする設定を追加
+                    provider.setCustomParameters({
+                        prompt: 'select_account'
+                    });
+                    
+                    // 403エラーの場合のワークアラウンド案内
+                    alert('モバイルでGoogleログインする場合:\n\n1. ブラウザの設定で「デスクトップサイト」を有効にする\n2. または、Chrome/Safariの最新版を使用する\n\nこれによりGoogleの認証が可能になります。');
+                    
                     await auth.signInWithRedirect(provider);
                 } else {
                     // PCの場合は従来のポップアップを使用
@@ -533,6 +542,10 @@
                 log(`❌ ログインエラー: ${error.message}`);
                 if (error.code === 'auth/operation-not-supported-in-this-environment') {
                     alert('このブラウザ環境ではGoogleログインがサポートされていません。\n別のブラウザをお試しください。');
+                } else if (error.code === 'auth/unauthorized-domain') {
+                    alert('認証ドメインエラー: Firebaseコンソールで承認済みドメインを確認してください。');
+                } else if (error.message && error.message.includes('403')) {
+                    alert('Googleログインがブロックされました。\n\n解決方法:\n1. ブラウザの「デスクトップサイト」モードを有効にする\n2. Chrome/Safariの最新版を使用する\n\nこれはGoogleのセキュリティポリシーによる制限です。');
                 }
             }
         };
