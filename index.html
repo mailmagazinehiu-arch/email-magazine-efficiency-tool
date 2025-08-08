@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="google-site-verification" content="MmDuEoCEfQOGu2UAXCKrZtbgxWBJRCX3sdTkWhVaSe4" />
-    <title>メルマガ効率化ツール v0.32</title>
+    <title>メルマガ効率化ツール v0.45</title>
     
     <!-- カスタムスタイル -->
     <link rel="stylesheet" href="custom/styles.css">
@@ -154,7 +154,7 @@
     <div class="fixed-header">
         <div class="header-content">
             <div class="app-header" style="text-align: center; margin: 0; padding: 0;">
-                <h1 class="app-title" style="margin: 5px 0 0 0; padding: 0; font-size: 16px; line-height: 1.0; display: inline-block;">📧 メルマガ効率化ツール v0.44</h1>
+                <h1 class="app-title" style="margin: 5px 0 0 0; padding: 0; font-size: 16px; line-height: 1.0; display: inline-block;">📧 メルマガ効率化ツール v0.45</h1>
                 <p class="app-subtitle" style="margin: 0; padding: 0; font-size: 10px; line-height: 1.0; display: inline-block; vertical-align: top; margin-left: 8px;">テキスト重複検出システム - Firebase + Google認証</p>
             </div>
             <!-- ログイン/ログアウトセクション -->
@@ -493,6 +493,12 @@
                     currentUser = result.user;
                     showUserInterface(result.user);
                     loadUserFileData();
+                    
+                    // ログイン成功メッセージを表示
+                    const successMessage = `ログイン成功！\nユーザー: ${result.user.displayName || result.user.email}`;
+                    if (document.getElementById('debugOutput')) {
+                        document.getElementById('debugOutput').textContent = successMessage;
+                    }
                 } else {
                     log('ℹ️ リダイレクト結果: 認証情報なし（通常のページ読み込み）');
                 }
@@ -500,9 +506,35 @@
             .catch((error) => {
                 if (error.code && error.code !== 'auth/no-auth-event') {
                     log(`❌ リダイレクトエラー: ${error.code} - ${error.message}`);
-                    if (error.code === 'auth/operation-not-supported-in-this-environment' || 
-                        error.code === 'auth/unauthorized-domain') {
-                        alert('このブラウザ環境ではGoogleログインがサポートされていません。\nデスクトップサイトモードをお試しください。');
+                    
+                    let errorMessage = 'ログインエラーが発生しました。';
+                    
+                    // エラーコードに応じた詳細メッセージ
+                    if (error.code === 'auth/operation-not-supported-in-this-environment') {
+                        errorMessage = 'このブラウザ環境ではGoogleログインがサポートされていません。\n\n' +
+                                      '推奨ブラウザ:\n' +
+                                      '• Chrome (最新版)\n' +
+                                      '• Firefox (最新版)\n' +
+                                      '• Safari (最新版)\n' +
+                                      '• Edge (最新版)';
+                    } else if (error.code === 'auth/unauthorized-domain') {
+                        errorMessage = '認証ドメインエラー\n\n' +
+                                      '現在のドメイン (' + window.location.hostname + ') は\n' +
+                                      'Firebase プロジェクトで許可されていません。\n\n' +
+                                      '管理者に連絡してください。';
+                    } else if (error.code === 'auth/user-disabled') {
+                        errorMessage = 'このアカウントは無効化されています。\n管理者にお問い合わせください。';
+                    } else if (error.code === 'auth/web-storage-unsupported') {
+                        errorMessage = 'ブラウザのストレージが無効になっています。\n\n' +
+                                      'Cookie とローカルストレージを有効にしてください。';
+                    }
+                    
+                    alert(errorMessage);
+                    
+                    // デバッグ情報を表示
+                    if (document.getElementById('debugOutput')) {
+                        document.getElementById('debugOutput').textContent = 
+                            `エラー: ${error.code}\n${error.message}`;
                     }
                 } else if (error.code === 'auth/no-auth-event') {
                     log('ℹ️ リダイレクト認証イベントなし（正常）');
@@ -539,36 +571,114 @@
                 log('🔐 Googleログイン開始...');
                 const provider = new firebase.auth.GoogleAuthProvider();
                 
-                // モバイルブラウザの検出
-                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                // 追加のスコープを要求しない（最小限の権限で動作）
+                provider.setCustomParameters({
+                    prompt: 'select_account',
+                    access_type: 'online'
+                });
                 
-                if (isMobile) {
-                    // モバイルの場合はsignInWithRedirectを使用
-                    log('📱 モバイルブラウザ検出 - リダイレクト方式を使用');
+                // ブラウザ判定を改善
+                const userAgent = navigator.userAgent.toLowerCase();
+                const isIOS = /iphone|ipad|ipod/.test(userAgent);
+                const isAndroid = /android/.test(userAgent);
+                const isMobile = isIOS || isAndroid;
+                
+                // 認証方式の選択
+                if (isMobile && !window.matchMedia('(min-width: 768px)').matches) {
+                    log('📱 モバイルデバイス検出');
                     
-                    // User-Agentをオーバーライドする設定を追加
-                    provider.setCustomParameters({
-                        prompt: 'select_account'
-                    });
+                    // リダイレクト前にユーザーに通知
+                    const confirmRedirect = confirm(
+                        'Googleログインを開始します。\n\n' +
+                        '注意事項:\n' +
+                        '• 認証後、自動的にこのページに戻ります\n' +
+                        '• ポップアップブロッカーを無効にしてください\n\n' +
+                        '続行しますか？'
+                    );
                     
-                    // 403エラーの場合のワークアラウンド案内
-                    alert('モバイルでGoogleログインする場合:\n\n1. ブラウザの設定で「デスクトップサイト」を有効にする\n2. または、Chrome/Safariの最新版を使用する\n\nこれによりGoogleの認証が可能になります。');
+                    if (!confirmRedirect) {
+                        log('❌ ユーザーがログインをキャンセル');
+                        return;
+                    }
                     
+                    // リダイレクト方式を使用
                     await auth.signInWithRedirect(provider);
                 } else {
-                    // PCの場合は従来のポップアップを使用
-                    const result = await auth.signInWithPopup(provider);
-                    log(`✅ ログイン成功: ${result.user.displayName}`);
+                    // デスクトップまたはタブレットの場合
+                    log('💻 デスクトップ/タブレット環境 - ポップアップ方式を使用');
+                    
+                    try {
+                        const result = await auth.signInWithPopup(provider);
+                        log(`✅ ログイン成功: ${result.user.displayName || result.user.email}`);
+                        
+                        // ログイン成功後の処理
+                        if (result.user) {
+                            const successMessage = `ログイン成功！\nユーザー: ${result.user.displayName || result.user.email}`;
+                            document.getElementById('debugOutput').textContent = successMessage;
+                        }
+                    } catch (popupError) {
+                        // ポップアップがブロックされた場合のフォールバック
+                        if (popupError.code === 'auth/popup-blocked') {
+                            log('⚠️ ポップアップがブロックされました - リダイレクト方式に切り替え');
+                            
+                            const useRedirect = confirm(
+                                'ポップアップがブロックされました。\n\n' +
+                                'リダイレクト方式でログインしますか？'
+                            );
+                            
+                            if (useRedirect) {
+                                await auth.signInWithRedirect(provider);
+                            }
+                        } else {
+                            throw popupError;
+                        }
+                    }
                 }
             } catch (error) {
-                log(`❌ ログインエラー: ${error.message}`);
-                if (error.code === 'auth/operation-not-supported-in-this-environment') {
-                    alert('このブラウザ環境ではGoogleログインがサポートされていません。\n別のブラウザをお試しください。');
-                } else if (error.code === 'auth/unauthorized-domain') {
-                    alert('認証ドメインエラー: Firebaseコンソールで承認済みドメインを確認してください。');
-                } else if (error.message && error.message.includes('403')) {
-                    alert('Googleログインがブロックされました。\n\n解決方法:\n1. ブラウザの「デスクトップサイト」モードを有効にする\n2. Chrome/Safariの最新版を使用する\n\nこれはGoogleのセキュリティポリシーによる制限です。');
+                log(`❌ ログインエラー: ${error.code} - ${error.message}`);
+                
+                // エラーメッセージの改善
+                let userMessage = 'ログインに失敗しました。';
+                
+                switch(error.code) {
+                    case 'auth/operation-not-supported-in-this-environment':
+                        userMessage = 'このブラウザ環境ではGoogleログインがサポートされていません。\n' +
+                                     'Chrome、Firefox、Safari、Edgeなどの主要ブラウザをご使用ください。';
+                        break;
+                    case 'auth/unauthorized-domain':
+                        userMessage = '認証ドメインが許可されていません。\n' +
+                                     '管理者にお問い合わせください。\n\n' +
+                                     '現在のドメイン: ' + window.location.hostname;
+                        break;
+                    case 'auth/popup-closed-by-user':
+                        userMessage = 'ログインがキャンセルされました。';
+                        break;
+                    case 'auth/cancelled-popup-request':
+                        userMessage = '別のログイン処理が実行中です。\n' +
+                                     'しばらく待ってから再試行してください。';
+                        break;
+                    case 'auth/network-request-failed':
+                        userMessage = 'ネットワークエラーが発生しました。\n' +
+                                     'インターネット接続を確認してください。';
+                        break;
+                    default:
+                        if (error.message && error.message.includes('403')) {
+                            userMessage = 'Googleの認証がブロックされました。\n\n' +
+                                         '解決方法:\n' +
+                                         '1. ブラウザを最新版にアップデート\n' +
+                                         '2. ブラウザの拡張機能を一時的に無効化\n' +
+                                         '3. プライベートブラウジングモードで試す\n' +
+                                         '4. 別のブラウザを使用する';
+                        } else {
+                            userMessage += '\n\nエラー詳細: ' + error.message;
+                        }
                 }
+                
+                alert(userMessage);
+                
+                // デバッグ情報を表示
+                document.getElementById('debugOutput').textContent = 
+                    `エラー: ${error.code}\n${error.message}\n\n対処法:\n${userMessage}`;
             }
         };
 
