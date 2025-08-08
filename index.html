@@ -360,15 +360,6 @@
         console.log('- Current Domain:', window.location.hostname);
         console.log('- Protocol:', window.location.protocol);
         console.log('- Firebase SDK Version:', firebase.SDK_VERSION || 'Unknown');
-        
-        // 認証の永続性を設定（ブラウザを閉じてもログイン状態を保持）
-        auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
-            .then(() => {
-                console.log('✅ Auth persistence set to LOCAL');
-            })
-            .catch((error) => {
-                console.error('❌ Auth persistence error:', error);
-            });
 
         let currentUser = null;
         let selectedTimingValue = '';
@@ -608,8 +599,7 @@
                 
                 // 追加のスコープを要求しない（最小限の権限で動作）
                 provider.setCustomParameters({
-                    prompt: 'select_account',
-                    access_type: 'online'
+                    prompt: 'select_account'
                 });
                 
                 // ブラウザ判定を改善
