@@ -482,10 +482,17 @@
         };
 
         // リダイレクト結果の処理（モバイル対応）
+        log('🔄 リダイレクト結果をチェック中...');
         auth.getRedirectResult()
             .then((result) => {
                 if (result.user) {
                     log(`✅ リダイレクトログイン成功: ${result.user.displayName}`);
+                    log(`📧 メール: ${result.user.email}`);
+                    // 明示的にユーザーインターフェースを表示
+                    showUserInterface(result.user);
+                    loadUserFileData();
+                } else {
+                    log('ℹ️ リダイレクト結果: ユーザー情報なし');
                 }
             })
             .catch((error) => {
@@ -495,10 +502,13 @@
                         error.code === 'auth/unauthorized-domain') {
                         alert('このブラウザ環境ではGoogleログインがサポートされていません。\nデスクトップサイトモードをお試しください。');
                     }
+                } else if (error.code === 'auth/no-auth-event') {
+                    log('ℹ️ リダイレクト認証イベントなし（正常）');
                 }
             });
 
         // 認証状態の監視
+        let isInitialLoad = true;
         auth.onAuthStateChanged((user) => {
             currentUser = user;
             if (user) {
@@ -506,9 +516,13 @@
                 showUserInterface(user);
                 loadUserFileData();
             } else {
-                log('❌ ログアウトしました');
+                // 初回読み込み時はログアウトメッセージを表示しない
+                if (!isInitialLoad) {
+                    log('❌ ログアウトしました');
+                }
                 showLoginInterface();
             }
+            isInitialLoad = false;
         });
 
         // Googleログイン
