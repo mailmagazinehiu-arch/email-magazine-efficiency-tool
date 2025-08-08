@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>共有/個人データ切り替え機能の追加例</title>
+</head>
+<body>
+    <h1>実装例：共有データと個人データの切り替え</h1>
+    
+    <h2>1. UI に保存先選択を追加</h2>
+    <pre><code>
+&lt;div class="save-options"&gt;
+    &lt;label&gt;
+        &lt;input type="radio" name="saveLocation" value="personal" checked&gt;
+        🔒 個人データとして保存
+    &lt;/label&gt;
+    &lt;label&gt;
+        &lt;input type="radio" name="saveLocation" value="shared"&gt;
+        🌐 共有データとして保存
+    &lt;/label&gt;
+&lt;/div&gt;
+    </code></pre>
+
+    <h2>2. 保存関数の修正例</h2>
+    <pre><code>
+// 保存先を判定する関数
+function getSaveLocation() {
+    const selectedLocation = document.querySelector('input[name="saveLocation"]:checked').value;
+    if (selectedLocation === 'shared') {
+        return 'common/files';
+    } else {
+        return `users/${currentUser.uid}/files`;
+    }
+}
+
+// ファイル保存時
+window.saveFileData = () => {
+    const saveLocation = getSaveLocation();
+    const dataRef = database.ref(saveLocation).push();
+    // ... 保存処理
+};
+    </code></pre>
+
+    <h2>3. データ読み込みの修正例</h2>
+    <pre><code>
+// 個人データと共有データの両方を読み込む
+function loadAllData(userId) {
+    // 個人データ
+    const personalRef = database.ref(`users/${userId}/files`);
+    personalRef.on('value', (snapshot) => {
+        const personalData = snapshot.val() || {};
+        displayData(personalData, 'personal');
+    });
+    
+    // 共有データ
+    const sharedRef = database.ref('common/files');
+    sharedRef.on('value', (snapshot) => {
+        const sharedData = snapshot.val() || {};
+        displayData(sharedData, 'shared');
+    });
+}
+    </code></pre>
+
+    <h2>4. 表示時にタグ付け</h2>
+    <pre><code>
+function displayData(data, type) {
+    Object.entries(data).forEach(([key, entry]) => {
+        const tag = type === 'shared' ? '🌐 共有' : '🔒 個人';
+        // 表示処理にタグを追加
+    });
+}
+    </code></pre>
+</body>
+</html>

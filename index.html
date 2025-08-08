@@ -106,7 +106,7 @@
     <div class="fixed-header">
         <div class="header-content">
             <div class="app-header" style="text-align: center; margin: 0; padding: 0;">
-                <h1 class="app-title" style="margin: 5px 0 0 0; padding: 0; font-size: 16px; line-height: 1.0; display: inline-block;">📧 メルマガ効率化ツール v0.32</h1>
+                <h1 class="app-title" style="margin: 5px 0 0 0; padding: 0; font-size: 16px; line-height: 1.0; display: inline-block;">📧 メルマガ効率化ツール v0.4</h1>
                 <p class="app-subtitle" style="margin: 0; padding: 0; font-size: 10px; line-height: 1.0; display: inline-block; vertical-align: top; margin-left: 8px;">テキスト重複検出システム - Firebase + Google認証</p>
             </div>
             <!-- ログイン/ログアウトセクション -->
@@ -438,7 +438,7 @@
             if (user) {
                 log(`✅ ログイン成功: ${user.displayName}`);
                 showUserInterface(user);
-                loadUserFileData(user.uid);
+                loadUserFileData();
             } else {
                 log('❌ ログアウトしました');
                 showLoginInterface();
@@ -488,7 +488,7 @@
                     log('💾 ファイルデータを保存中...');
                     
                     const now = new Date();
-                    const userRef = database.ref(`users/${currentUser.uid}/files`);
+                    const userRef = database.ref(`common/files`);
 
                     for (let i = 0; i < fileInput.files.length; i++) {
                         const file = fileInput.files[i];
@@ -530,7 +530,7 @@
                     log('💾 テキストデータを保存中...');
                     
                     const now = new Date();
-                    const userRef = database.ref(`users/${currentUser.uid}/files`);
+                    const userRef = database.ref(`common/files`);
                     
                     // タイトルを自動生成
                     const autoTitle = generateAutoTitle(content.trim());
@@ -676,7 +676,7 @@
             
             try {
                 log(`🗑️ ファイル削除中: ${entryId}`);
-                const entryRef = database.ref(`users/${currentUser.uid}/files/${entryId}`);
+                const entryRef = database.ref(`common/files/${entryId}`);
                 await entryRef.remove();
                 log(`✅ 削除完了: ${entryId}`);
             } catch (error) {
@@ -685,8 +685,8 @@
         };
 
         // ユーザーのファイルデータを読み込み
-        function loadUserFileData(userId) {
-            const userRef = database.ref(`users/${userId}/files`);
+        function loadUserFileData() {
+            const userRef = database.ref(`common/files`);
             userRef.on('value', (snapshot) => {
                 const data = snapshot.val();
                 const historyDiv = document.getElementById('fileHistory');
