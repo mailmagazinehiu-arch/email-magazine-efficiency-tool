@@ -1,0 +1,40 @@
+{
+  "name": "email-magazine-efficiency-tool",
+  "version": "0.32.0",
+  "description": "Firebase + Google認証によるメルマガ効率化システム - Universal Template採用",
+  "main": "index.html",
+  "scripts": {
+    "start": "echo '🚀 HTTPサーバーを起動してindex.htmlを開いてください'",
+    "serve": "npx http-server -p 8000",
+    "help": "echo '📧 メルマガ効率化ツール\\n\\n使用方法:\\n  npm run serve   # ローカルサーバー起動\\n  ブラウザで http://localhost:8000 にアクセス'"
+  },
+  "keywords": [
+    "email-magazine-efficiency",
+    "text-analysis",
+    "file-management",
+    "firebase",
+    "google-auth",
+    "universal-template",
+    "knowledge-base",
+    "document-archive",
+    "search-tool",
+    "testing",
+    "automation",
+    "ui-testing",
+    "data-storage"
+  ],
+  "author": "Template Project",
+  "license": "MIT",
+  "dependencies": {},
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mailmagazinehiu-arch/email-magazine-efficiency-tool.git"
+  },
+  "homepage": "https://github.com/mailmagazinehiu-arch/email-magazine-efficiency-tool",
+  "bugs": {
+    "url": "https://github.com/mailmagazinehiu-arch/email-magazine-efficiency-tool/issues"
+  }
+}

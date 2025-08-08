@@ -1,0 +1,1366 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>メルマガ効率化ツール v0.32</title>
+    
+    <!-- カスタムスタイル -->
+    <link rel="stylesheet" href="custom/styles.css">
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    
+    <!-- カスタム設定 -->
+    <script type="module" src="custom/app-config.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        h1, p { margin: 0 !important; padding: 0 !important; }
+        body { font-family: Arial, sans-serif; padding: 10px; background: #f5f5f5; margin: 0; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .auth-section { background: #e7f3ff; color: #0c5460; padding: 10px; border-radius: 5px; margin-bottom: 10px; text-align: center; }
+        .weight-input { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 10px; margin: 10px 0; }
+        .input-card { border: 1px solid #ddd; padding: 10px; border-radius: 8px; }
+        .input-field { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; margin: 5px 0; font-size: 16px; }
+        .save-button { background: #28a745; color: white; border: none; padding: 12px 24px; border-radius: 5px; cursor: pointer; margin: 5px; font-size: 16px; }
+        .save-button:hover { background: #218838; }
+        .auth-button { background: #4285f4; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin: 5px; }
+        .auth-button:hover { background: #357ae8; }
+        .logout-button { background: #dc3545; color: white; border: none; padding: 8px 16px; border-radius: 5px; cursor: pointer; margin: 5px; }
+        .data-area { background: #f8f9fa; border: 1px solid #dee2e6; padding: 8px; border-radius: 5px; font-family: monospace; min-height: 120px; }
+        .hidden { display: none; }
+        .user-info { background: #d4edda; color: #155724; padding: 6px; border-radius: 5px; margin-bottom: 8px; }
+        
+        /* 固定ヘッダーのスタイル */
+        .fixed-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            padding: 1px 10px;
+        }
+        .header-content {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .header-tabs {
+            display: flex;
+            gap: 5px;
+            margin-top: 1px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .header-tab-button {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s;
+            flex: 1;
+            min-width: 80px;
+            max-width: 120px;
+        }
+        .header-tab-button:hover {
+            background: #5a6268;
+            transform: translateY(-2px);
+        }
+        .header-tab-button.active {
+            background: #007bff;
+            box-shadow: 0 2px 5px rgba(0,123,255,0.3);
+        }
+        .main-content {
+            margin-top: 100px; /* ヘッダーの高さ分の余白 */
+            padding: 10px;
+        }
+        @media (max-width: 600px) {
+            .header-tabs {
+                gap: 5px;
+            }
+            .header-tab-button {
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+            .main-content {
+                margin-top: 135px;
+            }
+            .save-button, .universal-copy-btn {
+                font-size: 14px;
+            }
+            .input-card h4 {
+                font-size: 14px !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 固定ヘッダー -->
+    <div class="fixed-header">
+        <div class="header-content">
+            <div class="app-header" style="text-align: center; margin: 0; padding: 0;">
+                <h1 class="app-title" style="margin: 5px 0 0 0; padding: 0; font-size: 16px; line-height: 1.0; display: inline-block;">📧 メルマガ効率化ツール v0.32</h1>
+                <p class="app-subtitle" style="margin: 0; padding: 0; font-size: 10px; line-height: 1.0; display: inline-block; vertical-align: top; margin-left: 8px;">テキスト重複検出システム - Firebase + Google認証</p>
+            </div>
+            <!-- ログイン/ログアウトセクション -->
+            <div style="display: flex; justify-content: center; align-items: center; margin: 0; padding: 0;">
+                <div class="auth-section" id="authSection" style="background: transparent; padding: 0; margin: 0; color: #333;">
+                    <button class="auth-button" onclick="handleGoogleLogin()" style="padding: 3px 12px; font-size: 11px;">Googleでログイン</button>
+                </div>
+                <div class="user-info hidden" id="userInfo" style="background: transparent; padding: 0; margin: 0; display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 11px; color: #333;">👤 ログイン中: <span id="userName"></span></span>
+                    <button class="logout-button" onclick="handleLogout()" style="padding: 3px 10px; font-size: 10px;">ログアウト</button>
+                </div>
+            </div>
+            <!-- ヘッダータブ -->
+            <div class="header-tabs">
+                <button class="header-tab-button active" onclick="switchTab('duplicate')">
+                    🔍 重複チェック
+                </button>
+                <button class="header-tab-button" onclick="switchTab('other')">
+                    📋 その他機能
+                </button>
+                <button class="header-tab-button" onclick="switchTab('settings')">
+                    ⚙️ 設定
+                </button>
+                <button class="header-tab-button" onclick="switchTab('help')">
+                    ❓ ヘルプ
+                </button>
+                <button class="header-tab-button" onclick="switchTab('empty1')">
+                    📦 空
+                </button>
+                <button class="header-tab-button" onclick="switchTab('empty2')">
+                    📦 空
+                </button>
+                <button class="header-tab-button" onclick="switchTab('empty3')">
+                    📦 空
+                </button>
+                <button class="header-tab-button" onclick="switchTab('empty4')">
+                    📦 空
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- メインコンテンツ -->
+    <div class="container main-content">
+
+        <!-- データ入力セクション -->
+        <div class="weight-input hidden tab-content" id="weightInput" data-tab="duplicate">
+            <div class="input-card">
+                
+                <!-- 入力方法選択 -->
+                <div style="margin: 10px 0;">
+                    <h4 style="margin: 5px 0; font-size: 14px;">📝 入力方法を選択:</h4>
+                    <div style="display: flex; gap: 10px; margin: 5px 0;">
+                        <button type="button" id="fileInputBtn" class="method-btn" onclick="selectInputMethod('file')" style="background: #007bff; color: white; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 14px;">📁 ファイル</button>
+                        <button type="button" id="textInputBtn" class="method-btn" onclick="selectInputMethod('text')" style="background: #6c757d; color: white; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 14px;">📝 テキスト</button>
+                    </div>
+                </div>
+
+                <!-- ファイル入力エリア -->
+                <div id="fileInputArea">
+                    <div id="dropZone" style="border: 2px dashed #ddd; border-radius: 10px; padding: 20px; text-align: center; margin: 10px 0; background: #f9f9f9; transition: all 0.3s;">
+                        <p>📁 ファイルをドラッグ&ドロップするか、下のボタンから選択してください</p>
+                        <input type="file" class="input-field" id="fileInput" accept=".txt,.md,.csv" multiple>
+                    </div>
+                </div>
+
+                <!-- テキスト入力エリア -->
+                <div id="textInputArea" class="hidden">
+                    <div style="border: 2px solid #ddd; border-radius: 10px; padding: 10px; margin: 10px 0; background: #f9f9f9;">
+                        <p style="margin: 0 0 10px 0; color: #666; font-size: 14px;">✏️ テキストを直接入力またはクリップボードから貼り付けてください（タイトルは自動生成されます）</p>
+                        <textarea class="input-field" id="textContent" placeholder="ここにテキストを入力または貼り付けてください..." rows="8" style="resize: vertical;"></textarea>
+                        <div style="text-align: right; margin-top: 5px;">
+                            <button type="button" onclick="pasteFromClipboard()" style="background: #28a745; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 12px;">📋 クリップボードから貼り付け</button>
+                            <button type="button" onclick="clearTextInput()" style="background: #6c757d; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 12px; margin-left: 5px;">🗑️ クリア</button>
+                        </div>
+                    </div>
+                </div>
+
+                <textarea class="input-field" id="memoInput" placeholder="メモ (オプション)" rows="2" style="color: #888; opacity: 0.8;"></textarea>
+                <button class="save-button" onclick="saveData()">💾 保存</button>
+            </div>
+            
+            <div class="input-card">
+                <div>
+                    <h4 style="margin: 0 0 10px 0; font-size: 14px;">🔍 キーワード検索</h4>
+                    <div>
+                        <input type="text" class="input-field" id="searchKeyword" placeholder="検索キーワードを入力..." style="width: 100%; margin: 0 0 5px 0;" onkeydown="if(event.key === 'Enter') searchFiles()">
+                        <div style="display: flex; gap: 5px;">
+                            <button class="save-button" onclick="searchFiles()" style="background: #17a2b8; padding: 10px 16px; white-space: nowrap; margin: 0;">🔍 検索</button>
+                            <button class="universal-copy-btn" onclick="clearSearch()" style="background: #6c757d; color: white; border: none; padding: 10px 16px; border-radius: 5px; cursor: pointer; white-space: nowrap; margin: 0;">🗑️ クリア</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 検索結果表示エリア -->
+                <div id="searchResults" class="hidden">
+                    <h4 style="margin: 10px 0 5px 0; color: #17a2b8;">📊 検索結果</h4>
+                    <div class="data-area" id="searchResultsDisplay">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="input-card">
+                <div class="data-area" id="fileHistory">
+                    ファイルデータを読み込み中...<br>
+                </div>
+            </div>
+                </div>
+
+                <!-- その他機能タブ -->
+                <div class="hidden tab-content" id="otherTab" data-tab="other">
+                    <h3>📋 その他の機能</h3>
+                    <div style="margin: 20px 0;">
+                        <p>ここに新しい機能を追加できます。例：</p>
+                        <ul>
+                            <li>📊 統計情報の表示</li>
+                            <li>🔄 データのエクスポート/インポート</li>
+                            <li>⚙️ 詳細設定</li>
+                            <li>📈 分析レポート</li>
+                        </ul>
+                        <button class="save-button" onclick="log('📋 その他機能タブがクリックされました')" style="margin-top: 10px;">テスト機能</button>
+                    </div>
+                </div>
+
+                <!-- 設定タブ -->
+                <div class="hidden tab-content" id="settingsTab" data-tab="settings">
+                    <h3>⚙️ 設定</h3>
+                    <div style="margin: 20px 0;">
+                        <p>アプリケーションの設定：</p>
+                        <ul>
+                            <li>🎨 テーマ設定</li>
+                            <li>🔔 通知設定</li>
+                            <li>💾 データ管理</li>
+                            <li>🔐 セキュリティ設定</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- ヘルプタブ -->
+                <div class="hidden tab-content" id="helpTab" data-tab="help">
+                    <h3>❓ ヘルプ</h3>
+                    <div style="margin: 20px 0;">
+                        <h4>使い方：</h4>
+                        <ol>
+                            <li>Googleアカウントでログイン</li>
+                            <li>ファイルをアップロードまたはテキストを入力</li>
+                            <li>キーワードで検索</li>
+                            <li>vol番号が自動的に表示されます</li>
+                        </ol>
+                        <p>バージョン: v0.32</p>
+                    </div>
+                </div>
+
+        <!-- ファイル内容表示エリア -->
+        <div class="hidden" id="fileContentSection">
+            <h3>📝 ファイル内容プレビュー <button class="universal-copy-btn" onclick="hideFileContent()" style="background: #6c757d; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 12px;">✖ 閉じる</button></h3>
+            <div class="data-area" id="fileContentDisplay">
+            </div>
+        </div>
+
+        <h3>📋 アプリログ <button class="universal-copy-btn" onclick="copyLogs()" style="background: #28a745; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 12px;">📋 ログをコピー</button></h3>
+        <div class="data-area" id="logArea">
+            メルマガ効率化ツール起動完了...<br>
+            🔥 Firebase設定完了<br>
+            🔐 Google認証準備完了<br>
+        </div>
+        
+        <!-- デバッグボタンエリア -->
+        <div style="margin-top: 8px; text-align: center;">
+            <button class="universal-copy-btn" onclick="debugFirebaseConnection()" style="background: #ff6b6b; color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; margin: 5px;">🔍 Firebase Debug</button>
+            <button class="universal-copy-btn" onclick="checkLoginIssues()" style="background: #ffc107; color: #212529; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; margin: 5px;">⚠️ ログイン問題診断</button>
+            <button class="universal-copy-btn" onclick="copyDebugInfo()" style="background: #17a2b8; color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; margin: 5px;">📋 デバッグ情報をコピー</button>
+            <button class="universal-copy-btn" onclick="checkDatabaseStructure()" style="background: #6f42c1; color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; margin: 5px;">🏗️ DB構造確認</button>
+        </div>
+    </div>
+
+    <script>
+        // Core Firebase設定（変更禁止 - core/src/firebase-config.js参照）
+        const firebaseConfig = {
+            apiKey: "AIzaSyA5PXKChizYDCXF_GJ4KL6Ylq9K5hCPXWE",
+            authDomain: "shares-b1b97.firebaseapp.com",
+            databaseURL: "https://shares-b1b97-default-rtdb.firebaseio.com",
+            projectId: "shares-b1b97",
+            storageBucket: "shares-b1b97.firebasestorage.app",
+            messagingSenderId: "38311063248",
+            appId: "1:38311063248:web:0d2d5726d12b305b24b8d5"
+        };
+
+        // Firebase初期化
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const database = firebase.database();
+
+        let currentUser = null;
+        let selectedTimingValue = '';
+        let inputMethod = 'file'; // デフォルトはファイル入力
+
+        // 入力方法選択機能
+        window.selectInputMethod = (method) => {
+            inputMethod = method;
+            const fileArea = document.getElementById('fileInputArea');
+            const textArea = document.getElementById('textInputArea');
+            const fileBtn = document.getElementById('fileInputBtn');
+            const textBtn = document.getElementById('textInputBtn');
+
+            if (method === 'file') {
+                fileArea.classList.remove('hidden');
+                textArea.classList.add('hidden');
+                fileBtn.style.background = '#007bff';
+                textBtn.style.background = '#6c757d';
+                log('📁 ファイル入力モードに切り替え');
+            } else {
+                fileArea.classList.add('hidden');
+                textArea.classList.remove('hidden');
+                fileBtn.style.background = '#6c757d';
+                textBtn.style.background = '#007bff';
+                log('📝 テキスト入力モードに切り替え');
+            }
+        };
+
+        // クリップボードから貼り付け
+        window.pasteFromClipboard = async () => {
+            try {
+                const text = await navigator.clipboard.readText();
+                document.getElementById('textContent').value = text;
+                log(`📋 クリップボードから${text.length}文字を貼り付けました`);
+            } catch (error) {
+                log('❌ クリップボードからの貼り付けに失敗しました');
+                // フォールバック: 手動貼り付けを促す
+                const textarea = document.getElementById('textContent');
+                textarea.focus();
+                alert('Ctrl+V で手動で貼り付けてください');
+            }
+        };
+
+        // テキスト入力クリア
+        window.clearTextInput = () => {
+            document.getElementById('textContent').value = '';
+            log('🗑️ テキスト入力をクリアしました');
+        };
+
+        // タイトル自動生成
+        function generateAutoTitle(content) {
+            const now = new Date();
+            const timestamp = now.toLocaleString('ja-JP', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            }).replace(/[\/\s:]/g, '-');
+            
+            // 内容の最初の30文字を取得（改行や特殊文字を除去）
+            const firstLine = content.split('\n')[0].trim();
+            const preview = firstLine.length > 30 ? firstLine.substring(0, 30) + '...' : firstLine;
+            
+            // 内容がある場合は内容ベース、ない場合は日時ベース
+            if (preview && preview.length > 3) {
+                return `${preview} (${timestamp})`;
+            } else {
+                return `テキスト-${timestamp}`;
+            }
+        }
+
+        // ドラッグ&ドロップ機能の設定
+        function setupDragAndDrop() {
+            const dropZone = document.getElementById('dropZone');
+            const fileInput = document.getElementById('fileInput');
+
+            // ドラッグオーバー時のスタイル変更
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.style.borderColor = '#007bff';
+                dropZone.style.backgroundColor = '#e3f2fd';
+            });
+
+            dropZone.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                dropZone.style.borderColor = '#ddd';
+                dropZone.style.backgroundColor = '#f9f9f9';
+            });
+
+            // ファイルドロップ時の処理
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.style.borderColor = '#ddd';
+                dropZone.style.backgroundColor = '#f9f9f9';
+                
+                const files = e.dataTransfer.files;
+                fileInput.files = files;
+                log(`📁 ${files.length}個のファイルがドロップされました`);
+            });
+        }
+
+        // キーボードでの体重調整機能
+        window.handleWeightKeypress = (event) => {
+            const weightInput = document.getElementById('weightValue');
+            const currentValue = parseFloat(weightInput.value) || 72.0;
+            
+            if (event.key === 'ArrowUp') {
+                event.preventDefault();
+                weightInput.value = (currentValue + 0.1).toFixed(1);
+            } else if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                weightInput.value = Math.max(0, currentValue - 0.1).toFixed(1);
+            }
+        };
+
+        // タイミング選択機能
+        window.selectTiming = (timing) => {
+            selectedTimingValue = timing;
+            document.getElementById('selectedTiming').value = timing;
+            
+            // 選択されたボタンのスタイルを更新
+            document.querySelectorAll('.timing-btn').forEach(btn => {
+                btn.style.opacity = '0.6';
+                btn.style.transform = 'scale(1)';
+            });
+            
+            event.target.style.opacity = '1';
+            event.target.style.transform = 'scale(1.05)';
+            
+            log(`⏰ 測定タイミング選択: ${timing}`);
+        };
+
+        // 認証状態の監視
+        auth.onAuthStateChanged((user) => {
+            currentUser = user;
+            if (user) {
+                log(`✅ ログイン成功: ${user.displayName}`);
+                showUserInterface(user);
+                loadUserFileData(user.uid);
+            } else {
+                log('❌ ログアウトしました');
+                showLoginInterface();
+            }
+        });
+
+        // Googleログイン
+        window.handleGoogleLogin = async () => {
+            try {
+                log('🔐 Googleログイン開始...');
+                const provider = new firebase.auth.GoogleAuthProvider();
+                const result = await auth.signInWithPopup(provider);
+                log(`✅ ログイン成功: ${result.user.displayName}`);
+            } catch (error) {
+                log(`❌ ログインエラー: ${error.message}`);
+            }
+        };
+
+        // ログアウト
+        window.handleLogout = async () => {
+            try {
+                await auth.signOut();
+                log('📤 ログアウト完了');
+            } catch (error) {
+                log(`❌ ログアウトエラー: ${error.message}`);
+            }
+        };
+
+        // 統合データ保存機能
+        window.saveData = async () => {
+            if (!currentUser) {
+                log('❌ ログインが必要です');
+                return;
+            }
+
+            const memo = document.getElementById('memoInput').value;
+
+            if (inputMethod === 'file') {
+                // ファイル保存処理
+                const fileInput = document.getElementById('fileInput');
+                if (!fileInput.files || fileInput.files.length === 0) {
+                    log('❌ ファイルを選択してください');
+                    return;
+                }
+
+                try {
+                    log('💾 ファイルデータを保存中...');
+                    
+                    const now = new Date();
+                    const userRef = database.ref(`users/${currentUser.uid}/files`);
+
+                    for (let i = 0; i < fileInput.files.length; i++) {
+                        const file = fileInput.files[i];
+                        const fileContent = await readFileContent(file);
+                        
+                        const fileData = {
+                            fileName: file.name,
+                            fileSize: file.size,
+                            fileType: file.type,
+                            content: fileContent,
+                            memo: memo || '',
+                            userEmail: currentUser.email,
+                            timestamp: firebase.database.ServerValue.TIMESTAMP,
+                            createdAt: now.toISOString(),
+                            inputType: 'file'
+                        };
+
+                        await userRef.push(fileData);
+                        log(`✅ 保存完了: ${file.name} (${Math.round(file.size/1024)}KB)`);
+                    }
+                    
+                    // 入力フィールドをクリア
+                    fileInput.value = '';
+                    
+                } catch (error) {
+                    log(`❌ ファイル保存エラー: ${error.message}`);
+                    return;
+                }
+            } else {
+                // テキスト保存処理
+                const content = document.getElementById('textContent').value;
+
+                if (!content.trim()) {
+                    log('❌ テキスト内容を入力してください');
+                    return;
+                }
+
+                try {
+                    log('💾 テキストデータを保存中...');
+                    
+                    const now = new Date();
+                    const userRef = database.ref(`users/${currentUser.uid}/files`);
+                    
+                    // タイトルを自動生成
+                    const autoTitle = generateAutoTitle(content.trim());
+                    
+                    const textData = {
+                        fileName: autoTitle,
+                        fileSize: new Blob([content]).size,
+                        fileType: 'text/plain',
+                        content: content.trim(),
+                        memo: memo || '',
+                        userEmail: currentUser.email,
+                        timestamp: firebase.database.ServerValue.TIMESTAMP,
+                        createdAt: now.toISOString(),
+                        inputType: 'text'
+                    };
+
+                    await userRef.push(textData);
+                    log(`✅ 保存完了: ${autoTitle} (${Math.round(textData.fileSize/1024)}KB)`);
+                    
+                    // 入力フィールドをクリア
+                    document.getElementById('textContent').value = '';
+                    
+                } catch (error) {
+                    log(`❌ テキスト保存エラー: ${error.message}`);
+                    return;
+                }
+            }
+
+            // 共通処理
+            document.getElementById('memoInput').value = '';
+            loadUserFileData(currentUser.uid);
+        };
+
+        // ファイル内容を読み取る関数
+        function readFileContent(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.onerror = (e) => reject(e);
+                reader.readAsText(file, 'UTF-8');
+            });
+        }
+
+        // vol番号抽出の統一関数
+        function extractVolNumber(fileName, content, enableDebug = false) {
+            const debugVol = enableDebug || fileName.includes('堀江') || fileName.includes('vol');
+            
+            if (debugVol) {
+                log(`🔍 Vol番号抽出開始: ${fileName}`);
+            }
+            
+            // 複数のパターンを定義（優先度順）
+            const volPatterns = [
+                // パターン1: vol.123, vol 123, vol.1234, vol123
+                { regex: /vol\.?\s*(\d{1,5})/gi, format: (match, num) => `vol.${num}`, priority: 1, desc: 'vol.数字パターン' },
+                // パターン2: Vol.123, VOL.123
+                { regex: /VOL\.?\s*(\d{1,5})/gi, format: (match, num) => `vol.${num}`, priority: 1, desc: 'VOL.数字パターン' },
+                // パターン3: 第123号, 第1234号
+                { regex: /第\s*(\d{1,5})\s*号/g, format: (match, num) => `vol.${num}`, priority: 2, desc: '第xx号パターン' },
+                // パターン4: No.123, No 123
+                { regex: /No\.?\s*(\d{1,5})/gi, format: (match, num) => `vol.${num}`, priority: 3, desc: 'No.数字パターン' },
+                // パターン5: #123
+                { regex: /#(\d{1,5})/g, format: (match, num) => `vol.${num}`, priority: 4, desc: '#数字パターン' },
+                // パターン6: v123, v.123
+                { regex: /v\.?\s*(\d{1,5})/gi, format: (match, num) => `vol.${num}`, priority: 5, desc: 'v数字パターン' }
+            ];
+            
+            const searchTargets = [
+                { source: fileName, desc: 'ファイル名' },
+                { source: content, desc: 'ファイル内容' }
+            ];
+            
+            let foundMatches = [];
+            
+            // 各検索対象で全パターンをチェック
+            searchTargets.forEach(target => {
+                volPatterns.forEach(pattern => {
+                    const matches = target.source.match(pattern.regex);
+                    if (matches) {
+                        matches.forEach(match => {
+                            const numbers = match.match(/\d+/);
+                            if (numbers && numbers[0]) {
+                                const num = numbers[0];
+                                const formatted = pattern.format(match, num);
+                                foundMatches.push({
+                                    original: match,
+                                    formatted: formatted,
+                                    number: parseInt(num),
+                                    priority: pattern.priority,
+                                    pattern: pattern.desc,
+                                    source: target.desc
+                                });
+                                
+                                if (debugVol) {
+                                    log(`  ✅ マッチ: ${match} → ${formatted} (${pattern.desc}, ${target.desc})`);
+                                }
+                            }
+                        });
+                    }
+                });
+            });
+            
+            // マッチが見つかった場合、優先度と数字の大きさで選択
+            if (foundMatches.length > 0) {
+                foundMatches.sort((a, b) => {
+                    // 優先度が低い方を優先、同じ優先度なら数字が大きい方
+                    if (a.priority !== b.priority) {
+                        return a.priority - b.priority;
+                    }
+                    return b.number - a.number;
+                });
+                
+                const volNumber = foundMatches[0].formatted;
+                
+                if (debugVol) {
+                    log(`  🎯 選択: ${volNumber} (${foundMatches[0].pattern}, ${foundMatches[0].source})`);
+                    if (foundMatches.length > 1) {
+                        log(`  📋 他の候補: ${foundMatches.slice(1).map(m => m.formatted).join(', ')}`);
+                    }
+                }
+                
+                return volNumber;
+            } else {
+                if (debugVol) {
+                    log(`  ❌ Vol番号が見つかりませんでした`);
+                    log(`  📝 ファイル名: ${fileName}`);
+                    log(`  📝 内容プレビュー: ${content.substring(0, 100)}...`);
+                }
+                return null;
+            }
+        }
+
+        // ファイルデータ削除
+        window.deleteFileEntry = async (entryId) => {
+            if (!currentUser) {
+                log('❌ ログインが必要です');
+                return;
+            }
+            
+            if (!confirm('このファイルを削除しますか？')) {
+                return;
+            }
+            
+            try {
+                log(`🗑️ ファイル削除中: ${entryId}`);
+                const entryRef = database.ref(`users/${currentUser.uid}/files/${entryId}`);
+                await entryRef.remove();
+                log(`✅ 削除完了: ${entryId}`);
+            } catch (error) {
+                log(`❌ 削除エラー: ${error.message}`);
+            }
+        };
+
+        // ユーザーのファイルデータを読み込み
+        function loadUserFileData(userId) {
+            const userRef = database.ref(`users/${userId}/files`);
+            userRef.on('value', (snapshot) => {
+                const data = snapshot.val();
+                const historyDiv = document.getElementById('fileHistory');
+                
+                if (data) {
+                    const entries = Object.entries(data)
+                        .map(([key, value]) => ({ id: key, ...value }))
+                        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                    
+                    historyDiv.innerHTML = `<div style="font-weight: bold; color: #17a2b8; margin-bottom: 10px;">📊 保存件数: ${entries.length}件</div>` +
+                        entries.map(entry => {
+                        const fileSize = Math.round(entry.fileSize / 1024);
+                        const uploadDate = new Date(entry.createdAt).toLocaleDateString('ja-JP');
+                        const inputTypeIcon = entry.inputType === 'text' ? '📝' : '📁';
+                        
+                        // vol番号を抽出（改善版）
+                        let volNumber = null;
+                        const debugVol = entry.fileName.includes('堀江') || entry.fileName.includes('vol'); // デバッグ対象
+                        
+                        if (debugVol) {
+                            log(`🔍 Vol番号抽出開始: ${entry.fileName}`);
+                        }
+                        
+                        // 複数のパターンを定義（優先度順）
+                        const volPatterns = [
+                            // パターン1: vol.123, vol 123, vol.1234, vol123
+                            { regex: /vol\.?\s*(\d{1,5})/gi, format: (match, num) => `vol.${num}`, priority: 1, desc: 'vol.数字パターン' },
+                            // パターン2: Vol.123, VOL.123
+                            { regex: /VOL\.?\s*(\d{1,5})/gi, format: (match, num) => `vol.${num}`, priority: 1, desc: 'VOL.数字パターン' },
+                            // パターン3: 第123号, 第1234号
+                            { regex: /第\s*(\d{1,5})\s*号/g, format: (match, num) => `vol.${num}`, priority: 2, desc: '第xx号パターン' },
+                            // パターン4: No.123, No 123
+                            { regex: /No\.?\s*(\d{1,5})/gi, format: (match, num) => `vol.${num}`, priority: 3, desc: 'No.数字パターン' },
+                            // パターン5: #123
+                            { regex: /#(\d{1,5})/g, format: (match, num) => `vol.${num}`, priority: 4, desc: '#数字パターン' },
+                            // パターン6: v123, v.123
+                            { regex: /v\.?\s*(\d{1,5})/gi, format: (match, num) => `vol.${num}`, priority: 5, desc: 'v数字パターン' }
+                        ];
+                        
+                        const searchTargets = [
+                            { source: entry.fileName, desc: 'ファイル名' },
+                            { source: entry.content, desc: 'ファイル内容' }
+                        ];
+                        
+                        let foundMatches = [];
+                        
+                        // 各検索対象で全パターンをチェック
+                        searchTargets.forEach(target => {
+                            volPatterns.forEach(pattern => {
+                                const matches = target.source.match(pattern.regex);
+                                if (matches) {
+                                    matches.forEach(match => {
+                                        const numbers = match.match(/\d+/);
+                                        if (numbers && numbers[0]) {
+                                            const num = numbers[0];
+                                            const formatted = pattern.format(match, num);
+                                            foundMatches.push({
+                                                original: match,
+                                                formatted: formatted,
+                                                number: parseInt(num),
+                                                priority: pattern.priority,
+                                                pattern: pattern.desc,
+                                                source: target.desc
+                                            });
+                                            
+                                            if (debugVol) {
+                                                log(`  ✅ マッチ: ${match} → ${formatted} (${pattern.desc}, ${target.desc})`);
+                                            }
+                                        }
+                                    });
+                                }
+                            });
+                        });
+                        
+                        // マッチが見つかった場合、優先度と数字の大きさで選択
+                        if (foundMatches.length > 0) {
+                            foundMatches.sort((a, b) => {
+                                // 優先度が低い方を優先、同じ優先度なら数字が大きい方
+                                if (a.priority !== b.priority) {
+                                    return a.priority - b.priority;
+                                }
+                                return b.number - a.number;
+                            });
+                            
+                            volNumber = foundMatches[0].formatted;
+                            
+                            if (debugVol) {
+                                log(`  🎯 選択: ${volNumber} (${foundMatches[0].pattern}, ${foundMatches[0].source})`);
+                                if (foundMatches.length > 1) {
+                                    log(`  📋 他の候補: ${foundMatches.slice(1).map(m => m.formatted).join(', ')}`);
+                                }
+                            }
+                        } else {
+                            if (debugVol) {
+                                log(`  ❌ Vol番号が見つかりませんでした`);
+                                log(`  📝 ファイル名: ${entry.fileName}`);
+                                log(`  📝 内容プレビュー: ${entry.content.substring(0, 100)}...`);
+                            }
+                        }
+                        
+                        // ファイル名を10文字程度に短縮
+                        let shortFileName = entry.fileName;
+                        if (shortFileName.length > 10) {
+                            shortFileName = shortFileName.substring(0, 10) + '...';
+                        }
+                        
+                        // vol番号の表示部分
+                        let volDisplay = '';
+                        if (volNumber) {
+                            volDisplay = `<span style="background: #007bff; color: white; padding: 1px 6px; border-radius: 10px; font-size: 10px; margin-left: 5px;">${volNumber}</span>`;
+                            if (debugVol) {
+                                log(`  🎨 バッジ作成: ${volNumber} → ${volDisplay.length}文字`);
+                            }
+                        } else {
+                            if (debugVol) {
+                                log(`  ❌ volNumber変数が空です: "${volNumber}"`);
+                            }
+                        }
+                        
+                        // 1行表示用のフォーマット
+                        return `<div style="display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid #eee;">
+                            <span style="cursor: pointer; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" 
+                                  onclick="showFileContent('${entry.id}', '${entry.fileName}', \`${entry.content.replace(/`/g, '\\`').replace(/\\/g, '\\\\')}\`)"
+                                  title="${entry.fileName} (${fileSize}KB) - ${uploadDate}${entry.memo ? ' - ' + entry.memo : ''}">
+                                ${inputTypeIcon} ${shortFileName} <span style="color: #6c757d; font-size: 12px;">(${fileSize}KB)</span>${volDisplay}
+                            </span>
+                            <span style="color: #6c757d; font-size: 12px; margin: 0 10px;">${uploadDate}</span>
+                            <button onclick="deleteFileEntry('${entry.id}')" style="background: #dc3545; color: white; border: none; padding: 2px 6px; border-radius: 3px; cursor: pointer; font-size: 10px;">🗑️</button>
+                        </div>`;
+                    }).join('');
+                    
+                    log(`📂 ファイル履歴読み込み完了: ${entries.length}件`);
+                } else {
+                    historyDiv.innerHTML = 'まだファイルデータがありません';
+                    log('📂 ファイル履歴: データなし');
+                }
+            });
+        }
+
+        // タブ切り替え機能
+        window.switchTab = (tabName) => {
+            // すべてのタブコンテンツを非表示
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.add('hidden');
+            });
+            
+            // すべてのヘッダーボタンのスタイルをリセット
+            document.querySelectorAll('.header-tab-button').forEach(button => {
+                button.classList.remove('active');
+            });
+            
+            // 選択されたタブを表示
+            const tabMap = {
+                'duplicate': { element: 'weightInput', log: '🔍 重複チェックタブに切り替えました' },
+                'other': { element: 'otherTab', log: '📋 その他機能タブに切り替えました' },
+                'settings': { element: 'settingsTab', log: '⚙️ 設定タブに切り替えました' },
+                'help': { element: 'helpTab', log: '❓ ヘルプタブに切り替えました' }
+            };
+            
+            if (tabMap[tabName]) {
+                document.getElementById(tabMap[tabName].element).classList.remove('hidden');
+                // ヘッダーボタンのアクティブ状態を更新
+                const buttons = document.querySelectorAll('.header-tab-button');
+                buttons.forEach(btn => {
+                    if (btn.getAttribute('onclick').includes(tabName)) {
+                        btn.classList.add('active');
+                    }
+                });
+                log(tabMap[tabName].log);
+            }
+        };
+
+        // UI表示制御
+        function showUserInterface(user) {
+            document.getElementById('authSection').classList.add('hidden');
+            document.getElementById('userInfo').classList.remove('hidden');
+            document.getElementById('weightInput').classList.remove('hidden');
+            document.getElementById('userName').textContent = user.displayName;
+            
+            // ドラッグ&ドロップ機能を初期化
+            setupDragAndDrop();
+        }
+
+        function showLoginInterface() {
+            document.getElementById('authSection').classList.remove('hidden');
+            document.getElementById('userInfo').classList.add('hidden');
+            document.getElementById('weightInput').classList.add('hidden');
+            document.getElementById('otherTab').classList.add('hidden');
+            document.getElementById('settingsTab').classList.add('hidden');
+            document.getElementById('helpTab').classList.add('hidden');
+        }
+
+        // ファイル内容表示機能
+        window.showFileContent = (fileId, fileName, content) => {
+            const contentSection = document.getElementById('fileContentSection');
+            const displayArea = document.getElementById('fileContentDisplay');
+            
+            // ファイル内容の最初の5行を取得
+            const lines = content.split('\n').slice(0, 5);
+            const previewContent = lines.join('\n');
+            const hasMore = content.split('\n').length > 5;
+            
+            displayArea.innerHTML = `<strong>📄 ${fileName}</strong><br><br><pre style="white-space: pre-wrap; font-family: monospace; background: #f8f9fa; padding: 10px; border-radius: 5px;">${previewContent}${hasMore ? '\n\n... (続きがあります)' : ''}</pre>`;
+            
+            contentSection.classList.remove('hidden');
+            log(`📝 ファイル内容表示: ${fileName}`);
+        };
+
+        // ファイル内容非表示
+        window.hideFileContent = () => {
+            document.getElementById('fileContentSection').classList.add('hidden');
+            log('📝 ファイル内容を非表示にしました');
+        };
+
+        // キーワード検索機能
+        window.searchFiles = async () => {
+            if (!currentUser) {
+                log('❌ ログインが必要です');
+                return;
+            }
+
+            const keyword = document.getElementById('searchKeyword').value.trim();
+            if (!keyword) {
+                log('❌ 検索キーワードを入力してください');
+                return;
+            }
+
+            try {
+                log(`🔍 キーワード「${keyword}」で検索開始...`);
+                
+                const userRef = database.ref(`users/${currentUser.uid}/files`);
+                const snapshot = await userRef.once('value');
+                const data = snapshot.val();
+                
+                if (!data) {
+                    log('📂 検索対象のファイルがありません');
+                    return;
+                }
+
+                const allFiles = Object.entries(data).map(([key, value]) => ({ id: key, ...value }));
+                const searchResults = [];
+                
+                // 各ファイルの内容からキーワードを検索
+                allFiles.forEach(file => {
+                    const contentLower = file.content.toLowerCase();
+                    const keywordLower = keyword.toLowerCase();
+                    
+                    if (contentLower.includes(keywordLower)) {
+                        // vol番号を抽出（改善版 - 検索機能用）
+                        let volNumber = null;
+                        const debugVol = file.fileName.includes('堀江') || file.fileName.includes('vol'); // デバッグ対象
+                        
+                        if (debugVol) {
+                            log(`🔍 検索Vol番号抽出開始: ${file.fileName}`);
+                        }
+                        
+                        // 複数のパターンを定義（優先度順）
+                        const volPatterns = [
+                            // パターン1: vol.123, vol 123, vol.1234, vol123
+                            { regex: /vol\.?\s*(\d{1,5})/gi, format: (match, num) => `vol.${num}`, priority: 1, desc: 'vol.数字パターン' },
+                            // パターン2: Vol.123, VOL.123
+                            { regex: /VOL\.?\s*(\d{1,5})/gi, format: (match, num) => `vol.${num}`, priority: 1, desc: 'VOL.数字パターン' },
+                            // パターン3: 第123号, 第1234号
+                            { regex: /第\s*(\d{1,5})\s*号/g, format: (match, num) => `vol.${num}`, priority: 2, desc: '第xx号パターン' },
+                            // パターン4: No.123, No 123
+                            { regex: /No\.?\s*(\d{1,5})/gi, format: (match, num) => `vol.${num}`, priority: 3, desc: 'No.数字パターン' },
+                            // パターン5: #123
+                            { regex: /#(\d{1,5})/g, format: (match, num) => `vol.${num}`, priority: 4, desc: '#数字パターン' },
+                            // パターン6: v123, v.123
+                            { regex: /v\.?\s*(\d{1,5})/gi, format: (match, num) => `vol.${num}`, priority: 5, desc: 'v数字パターン' }
+                        ];
+                        
+                        const searchTargets = [
+                            { source: file.fileName, desc: 'ファイル名' },
+                            { source: file.content, desc: 'ファイル内容' }
+                        ];
+                        
+                        let foundMatches = [];
+                        
+                        // 各検索対象で全パターンをチェック
+                        searchTargets.forEach(target => {
+                            volPatterns.forEach(pattern => {
+                                const matches = target.source.match(pattern.regex);
+                                if (matches) {
+                                    matches.forEach(match => {
+                                        const numbers = match.match(/\d+/);
+                                        if (numbers && numbers[0]) {
+                                            const num = numbers[0];
+                                            const formatted = pattern.format(match, num);
+                                            foundMatches.push({
+                                                original: match,
+                                                formatted: formatted,
+                                                number: parseInt(num),
+                                                priority: pattern.priority,
+                                                pattern: pattern.desc,
+                                                source: target.desc
+                                            });
+                                            
+                                            if (debugVol) {
+                                                log(`  ✅ 検索マッチ: ${match} → ${formatted} (${pattern.desc}, ${target.desc})`);
+                                            }
+                                        }
+                                    });
+                                }
+                            });
+                        });
+                        
+                        // マッチが見つかった場合、優先度と数字の大きさで選択
+                        if (foundMatches.length > 0) {
+                            foundMatches.sort((a, b) => {
+                                // 優先度が低い方を優先、同じ優先度なら数字が大きい方
+                                if (a.priority !== b.priority) {
+                                    return a.priority - b.priority;
+                                }
+                                return b.number - a.number;
+                            });
+                            
+                            volNumber = foundMatches[0].formatted;
+                            
+                            if (debugVol) {
+                                log(`  🎯 検索選択: ${volNumber} (${foundMatches[0].pattern}, ${foundMatches[0].source})`);
+                                if (foundMatches.length > 1) {
+                                    log(`  📋 検索他の候補: ${foundMatches.slice(1).map(m => m.formatted).join(', ')}`);
+                                }
+                            }
+                        } else {
+                            if (debugVol) {
+                                log(`  ❌ 検索Vol番号が見つかりませんでした`);
+                                log(`  📝 ファイル名: ${file.fileName}`);
+                                log(`  📝 内容プレビュー: ${file.content.substring(0, 100)}...`);
+                            }
+                        }
+                        
+                        // キーワードを含む行を抽出（前後2行も含む）
+                        const lines = file.content.split('\n');
+                        const matchingLines = [];
+                        
+                        lines.forEach((line, index) => {
+                            if (line.toLowerCase().includes(keywordLower)) {
+                                const start = Math.max(0, index - 2);
+                                const end = Math.min(lines.length - 1, index + 2);
+                                const context = lines.slice(start, end + 1).join('\n');
+                                matchingLines.push({
+                                    lineNumber: index + 1,
+                                    context: context,
+                                    matchingLine: line
+                                });
+                            }
+                        });
+
+                        if (matchingLines.length > 0) {
+                            searchResults.push({
+                                ...file,
+                                matches: matchingLines,
+                                volNumber: volNumber
+                            });
+                        }
+                    }
+                });
+
+                // 検索結果表示
+                displaySearchResults(keyword, searchResults);
+                
+            } catch (error) {
+                log(`❌ 検索エラー: ${error.message}`);
+            }
+        };
+
+        // 検索結果表示
+        function displaySearchResults(keyword, results) {
+            const resultsSection = document.getElementById('searchResults');
+            const resultsDisplay = document.getElementById('searchResultsDisplay');
+            
+            if (results.length === 0) {
+                resultsDisplay.innerHTML = `<p style="color: #6c757d;">キーワード「${keyword}」を含むファイルは見つかりませんでした。</p>`;
+                log(`🔍 検索完了: 「${keyword}」のマッチなし`);
+            } else {
+                const resultHtml = results.map(file => {
+                    const fileSize = Math.round(file.fileSize / 1024);
+                    const uploadDate = new Date(file.createdAt).toLocaleDateString('ja-JP');
+                    const inputTypeIcon = file.inputType === 'text' ? '📝' : '📁';
+                    
+                    const matchesHtml = file.matches.slice(0, 3).map(match => {
+                        const highlightedLine = match.matchingLine.replace(
+                            new RegExp(keyword, 'gi'),
+                            `<mark style="background: #ffeb3b; padding: 2px 4px; border-radius: 3px;">$&</mark>`
+                        );
+                        return `<div style="margin: 5px 0; padding: 8px; background: #f8f9fa; border-radius: 5px; border-left: 3px solid #17a2b8;">
+                            <small style="color: #666;">行 ${match.lineNumber}:</small><br>
+                            <span style="font-family: monospace; font-size: 13px;">${highlightedLine}</span>
+                        </div>`;
+                    }).join('');
+                    
+                    const moreMatches = file.matches.length > 3 ? `<small style="color: #666;">...他 ${file.matches.length - 3} 件のマッチ</small>` : '';
+                    
+                    // vol番号の表示
+                    let volDisplay = '';
+                    if (file.volNumber) {
+                        volDisplay = `<span style="background: #e3f2fd; color: #1976d2; padding: 2px 8px; border-radius: 12px; font-weight: bold; margin-left: 10px;">${file.volNumber}</span>`;
+                    } else {
+                        // vol番号が見つからない場合の代替表示
+                        const hasNumbers = file.fileName.match(/\d+/) || file.content.match(/\d+/);
+                        const debugVol = file.fileName.includes('堀江') || file.fileName.includes('vol');
+                        if (hasNumbers && debugVol) {
+                            volDisplay = `<span style="background: #f5f5f5; color: #6c757d; padding: 2px 8px; border-radius: 12px; margin-left: 10px;" title="vol番号未検出">?</span>`;
+                        }
+                    }
+                    
+                    return `<div style="border: 1px solid #ddd; border-radius: 8px; padding: 12px; margin: 8px 0;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <div>
+                                <strong>${inputTypeIcon} ${file.fileName}</strong>
+                                ${volDisplay}
+                            </div>
+                            <small style="color: #666;">${fileSize}KB - ${uploadDate}</small>
+                        </div>
+                        <div style="color: #17a2b8; font-size: 14px; margin-bottom: 8px;">
+                            📊 ${file.matches.length} 件のマッチ
+                        </div>
+                        ${matchesHtml}
+                        ${moreMatches}
+                        <div style="text-align: right; margin-top: 8px;">
+                            <button onclick="showFileContent('${file.id}', '${file.fileName}', \`${file.content.replace(/`/g, '\\`').replace(/\\/g, '\\\\')}\`)" style="background: #17a2b8; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 12px;">📄 全文表示</button>
+                        </div>
+                    </div>`;
+                }).join('');
+                
+                resultsDisplay.innerHTML = resultHtml;
+                log(`🔍 検索完了: 「${keyword}」が ${results.length} 件のファイルでマッチ`);
+            }
+            
+            resultsSection.classList.remove('hidden');
+        }
+
+        // 検索クリア
+        window.clearSearch = () => {
+            document.getElementById('searchKeyword').value = '';
+            document.getElementById('searchResults').classList.add('hidden');
+            document.getElementById('searchResultsDisplay').innerHTML = '';
+            log('🗑️ 検索結果をクリアしました');
+        };
+
+        // ログ出力関数
+        function log(message) {
+            const logArea = document.getElementById('logArea');
+            const timestamp = new Date().toLocaleTimeString();
+            logArea.innerHTML += `[${timestamp}] ${message}<br>`;
+            logArea.scrollTop = logArea.scrollHeight;
+            console.log(message);
+        }
+
+        // ログコピー機能
+        window.copyLogs = () => {
+            const logArea = document.getElementById('logArea');
+            const logText = logArea.innerText || logArea.textContent;
+            navigator.clipboard.writeText(logText).then(() => {
+                alert('✅ ログをコピーしました');
+            }).catch(() => {
+                // fallback
+                const textArea = document.createElement('textarea');
+                textArea.value = logText;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                alert('✅ ログをコピーしました');
+            });
+        };
+
+        // Firebase接続デバッグ
+        window.debugFirebaseConnection = () => {
+            log('🔍 === Firebase Debug 開始 ===');
+            
+            // 1. Firebase設定確認
+            log(`🔥 Firebase Config確認:`);
+            log(`- Project ID: ${firebaseConfig.projectId}`);
+            log(`- Database URL: ${firebaseConfig.databaseURL}`);
+            log(`- Auth Domain: ${firebaseConfig.authDomain}`);
+            
+            // 2. 認証状態確認
+            if (currentUser) {
+                log(`✅ 認証済みユーザー:`);
+                log(`- UID: ${currentUser.uid.substring(0,8)}...`);
+                log(`- Email: ${currentUser.email}`);
+                log(`- 表示名: ${currentUser.displayName}`);
+            } else {
+                log('❌ 未認証状態');
+            }
+            
+            // 3. 接続テスト
+            const connectedRef = database.ref('.info/connected');
+            connectedRef.once('value', (snapshot) => {
+                const connected = snapshot.val();
+                log(`🌐 Firebase接続状態: ${connected ? '接続中' : '未接続'}`);
+                
+                if (connected && currentUser) {
+                    // データベーステスト
+                    const testRef = database.ref(`users/${currentUser.uid}/test`);
+                    testRef.set({
+                        timestamp: firebase.database.ServerValue.TIMESTAMP,
+                        message: 'Connection test',
+                        app: 'weight-management'
+                    }).then(() => {
+                        log('✅ データベース書き込みテスト成功');
+                    }).catch((error) => {
+                        log(`❌ データベース書き込みエラー: ${error.message}`);
+                        log(`- Error Code: ${error.code}`);
+                    });
+                }
+            });
+            
+            log('🔍 === Firebase Debug 完了 ===');
+        };
+
+        // ログイン問題診断
+        window.checkLoginIssues = () => {
+            log('⚠️ === ログイン問題診断 開始 ===');
+            
+            // 1. プロトコルチェック
+            const protocol = window.location.protocol;
+            log(`🌐 現在のプロトコル: ${protocol}`);
+            
+            if (protocol === 'file:') {
+                log('❌ 問題発見: file://プロトコルではGoogle認証が動作しません');
+                log('✅ 解決方法:');
+                log('  1. HTTPサーバー経由でアクセス');
+                log('  2. chrome://flags で insecure origins を許可');
+                log('  3. ローカルサーバー起動 (python -m http.server 8000)');
+            } else if (protocol === 'https:' || protocol === 'http:') {
+                log('✅ プロトコル: 問題なし');
+            }
+            
+            // 2. Web Storage確認
+            try {
+                localStorage.setItem('test', 'test');
+                localStorage.removeItem('test');
+                log('✅ Web Storage: 利用可能');
+            } catch (e) {
+                log('❌ Web Storage: 無効');
+                log('✅ 解決方法: ブラウザ設定でCookieを有効にしてください');
+            }
+            
+            // 3. Firebaseライブラリ確認
+            if (typeof firebase !== 'undefined') {
+                log('✅ Firebase SDK: 読み込み済み');
+                log(`- Firebase Version: ${firebase.SDK_VERSION || 'Unknown'}`);
+            } else {
+                log('❌ Firebase SDK: 読み込みエラー');
+            }
+            
+            // 4. ドメイン確認
+            const domain = window.location.hostname;
+            log(`🏠 現在のドメイン: ${domain}`);
+            
+            if (domain === 'localhost' || domain === '127.0.0.1') {
+                log('✅ ローカル開発: Firebase設定で許可が必要');
+            }
+            
+            log('⚠️ === ログイン問題診断 完了 ===');
+        };
+
+        // データベース構造確認
+        window.checkDatabaseStructure = async () => {
+            if (!currentUser) {
+                log('❌ ログインが必要です');
+                return;
+            }
+            
+            log('🏗️ === データベース構造確認 開始 ===');
+            
+            try {
+                // 現在のユーザーのweightsデータ構造を確認
+                const userRef = database.ref(`users/${currentUser.uid}/weights`);
+                const snapshot = await userRef.once('value');
+                const data = snapshot.val();
+                
+                if (data) {
+                    const entries = Object.keys(data);
+                    log(`📊 現在のユーザー(${currentUser.email})のデータ:`);
+                    log(`- 体重記録数: ${entries.length}件`);
+                    log(`- 最新記録ID: ${entries[entries.length - 1]}`);
+                    
+                    // サンプルデータ構造を表示
+                    const sampleEntry = data[entries[0]];
+                    log(`- データ構造: ${JSON.stringify(sampleEntry, null, 2)}`);
+                } else {
+                    log('📊 現在のユーザーにはデータがありません');
+                }
+                
+                // ルートレベルの構造確認（管理者権限が必要）
+                try {
+                    const rootRef = database.ref('users');
+                    const rootSnapshot = await rootRef.once('value');
+                    const allUsers = rootSnapshot.val();
+                    
+                    if (allUsers) {
+                        const userCount = Object.keys(allUsers).length;
+                        log(`👥 全体統計:`);
+                        log(`- 登録ユーザー数: ${userCount}人`);
+                        
+                        let totalWeights = 0;
+                        Object.values(allUsers).forEach(user => {
+                            if (user.weights) {
+                                totalWeights += Object.keys(user.weights).length;
+                            }
+                        });
+                        log(`- 全体の体重記録数: ${totalWeights}件`);
+                    }
+                } catch (error) {
+                    log(`⚠️ 全体統計の取得に制限があります: ${error.message}`);
+                }
+                
+            } catch (error) {
+                log(`❌ 構造確認エラー: ${error.message}`);
+            }
+            
+            log('🏗️ === データベース構造確認 完了 ===');
+        };
+
+        // デバッグ情報をコピー
+        window.copyDebugInfo = () => {
+            const debugInfo = `体重管理アプリ デバッグ情報
+=================================
+タイムスタンプ: ${new Date().toLocaleString()}
+URL: ${window.location.href}
+プロトコル: ${window.location.protocol}
+ドメイン: ${window.location.hostname}
+ユーザーエージェント: ${navigator.userAgent}
+
+Firebase設定:
+- プロジェクトID: ${firebaseConfig.projectId}
+- データベースURL: ${firebaseConfig.databaseURL}
+- 認証ドメイン: ${firebaseConfig.authDomain}
+
+認証状態: ${currentUser ? 'ログイン済み' : '未ログイン'}
+${currentUser ? `- UID: ${currentUser.uid.substring(0,8)}...\n- Email: ${currentUser.email}\n- 表示名: ${currentUser.displayName}` : ''}
+
+Firebase SDK: ${typeof firebase !== 'undefined' ? '読み込み済み' : '読み込みエラー'}
+Web Storage: ${(() => {
+    try {
+        localStorage.setItem('test', 'test');
+        localStorage.removeItem('test');
+        return '利用可能';
+    } catch (e) {
+        return '無効';
+    }
+})()}
+
+ログ内容:
+${document.getElementById('logArea').innerText}`;
+
+            navigator.clipboard.writeText(debugInfo).then(() => {
+                alert('✅ デバッグ情報をコピーしました');
+            }).catch(() => {
+                // fallback
+                const textArea = document.createElement('textarea');
+                textArea.value = debugInfo;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                alert('✅ デバッグ情報をコピーしました');
+            });
+        };
+
+        // 初期化
+        log('🚀 メルマガ効率化ツール起動完了');
+        log('🔐 認証システム準備完了');
+        
+        // プロトコルチェック（自動診断）
+        if (window.location.protocol === 'file:') {
+            log('⚠️ file://プロトコル検出 - Googleログインには HTTPサーバーが必要です');
+            log('💡 解決方法: python -m http.server 8000 または chrome://flags設定');
+        }
+    </script>
+</body>
+</html>

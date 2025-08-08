@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Editor directories
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Environment variables
+.env
+.env.local
+
+# Firebase cache
+.firebase/
+
+# Personal data
+*.bak
+*.tmp
