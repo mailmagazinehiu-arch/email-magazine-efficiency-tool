@@ -153,7 +153,7 @@
     <div class="fixed-header">
         <div class="header-content">
             <div class="app-header" style="text-align: center; margin: 0; padding: 0;">
-                <h1 class="app-title" style="margin: 5px 0 0 0; padding: 0; font-size: 16px; line-height: 1.0; display: inline-block;">📧 メルマガ効率化ツール v0.4</h1>
+                <h1 class="app-title" style="margin: 5px 0 0 0; padding: 0; font-size: 16px; line-height: 1.0; display: inline-block;">📧 メルマガ効率化ツール v0.41</h1>
                 <p class="app-subtitle" style="margin: 0; padding: 0; font-size: 10px; line-height: 1.0; display: inline-block; vertical-align: top; margin-left: 8px;">テキスト重複検出システム - Firebase + Google認証</p>
             </div>
             <!-- ログイン/ログアウトセクション -->
@@ -1506,12 +1506,12 @@ ${document.getElementById('logArea').innerText}`;
                                         justify-content: space-between;
                                         ${item.registered ? 'background: #d4edda; border-color: #28a745;' : 'background: #f8d7da; border-color: #dc3545;'}
                                     ">
-                                        <span>Vol.${item.vol}</span>
+                                        <span style="color: #000;">Vol.${item.vol}</span>
                                         <span style="font-size: 16px;">${item.status}</span>
                                     </div>
                                 `).join('')}
                             </div>
-                            <p style="font-size: 12px; color: #666;">
+                            <p style="font-size: 12px; color: #000;">
                                 ✅: 登録済み / ❌: 未登録<br>
                                 表示範囲: Vol.${displayNumbers[displayNumbers.length-1]?.vol} ～ Vol.${displayNumbers[0]?.vol}
                             </p>
