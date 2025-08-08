@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firebase Auth Test</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+</head>
+<body>
+    <h1>Firebase認証テスト</h1>
+    <button onclick="testAuth()">Googleログインテスト</button>
+    <button onclick="checkStatus()">状態確認</button>
+    <button onclick="logout()">ログアウト</button>
+    <pre id="output"></pre>
+
+    <script>
+        // Firebase設定
+        const firebaseConfig = {
+            apiKey: "AIzaSyD8Z9OgiYC4jiqhsW6I4uCWcO97hHVVFi4",
+            authDomain: "mailmagazinehiu-arch.firebaseapp.com",
+            projectId: "mailmagazinehiu-arch"
+        };
+
+        // 初期化
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        
+        const output = document.getElementById('output');
+        
+        function log(msg) {
+            console.log(msg);
+            output.textContent += msg + '\n';
+        }
+
+        // 初期チェック
+        log('🔍 環境確認:');
+        log('- Current Domain: ' + window.location.hostname);
+        log('- Protocol: ' + window.location.protocol);
+        log('- Firebase SDK: ' + (firebase.SDK_VERSION || 'Unknown'));
+        log('- Auth Domain: ' + firebaseConfig.authDomain);
+        log('');
+
+        // 認証状態監視
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                log('✅ ログイン中: ' + user.email);
+            } else {
+                log('❌ 未ログイン');
+            }
+        });
+
+        // テスト関数
+        async function testAuth() {
+            try {
+                log('🚀 Googleログイン開始...');
+                const provider = new firebase.auth.GoogleAuthProvider();
+                const result = await auth.signInWithPopup(provider);
+                log('✅ 成功: ' + result.user.email);
+            } catch (error) {
+                log('❌ エラー: ' + error.code);
+                log('   メッセージ: ' + error.message);
+                if (error.code === 'auth/unauthorized-domain') {
+                    log('');
+                    log('⚠️ 解決方法:');
+                    log('1. Firebaseコンソールにアクセス');
+                    log('2. Authentication → Settings → Authorized domains');
+                    log('3. 現在のドメイン追加: ' + window.location.hostname);
+                }
+            }
+        }
+
+        function checkStatus() {
+            const user = auth.currentUser;
+            if (user) {
+                log('現在のユーザー: ' + user.email);
+            } else {
+                log('ログインしていません');
+            }
+        }
+
+        async function logout() {
+            try {
+                await auth.signOut();
+                log('ログアウトしました');
+            } catch (error) {
+                log('ログアウトエラー: ' + error.message);
+            }
+        }
+    </script>
+</body>
+</html>
