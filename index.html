@@ -334,7 +334,7 @@
 
     <script>
         // アプリバージョン（ここだけ変更すればタイトルとヘッダーが自動更新）
-        const APP_VERSION = '0.42';
+        const APP_VERSION = '0.43';
         
         // バージョンを表示
         document.addEventListener('DOMContentLoaded', () => {
@@ -393,13 +393,58 @@
         function promptOpenInBrowser() {
             const url = window.location.href;
             log('🚫 アプリ内ブラウザを検出: 外部ブラウザで開いてください');
-            const message = [
-                'この画面はアプリ内ブラウザではGoogleログインできません。',
-                '右上の…メニューから「ブラウザで開く」を選び、Safari/Chromeで開いてください。',
-                'URLはクリップボードにコピーされます。'
-            ].join('\n');
             try { navigator.clipboard.writeText(url); } catch (_) {}
-            alert(message);
+
+            const isAndroid = /Android/i.test(navigator.userAgent);
+            const isiOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+            const androidIntent = (() => {
+                // intent://<host><path>#Intent;scheme=https;package=com.android.chrome;end
+                const hostPath = `${location.host}${location.pathname}${location.search}${location.hash}`;
+                return `intent://${hostPath}#Intent;scheme=https;package=com.android.chrome;end`;
+            })();
+
+            const iosChromeLink = (() => {
+                // googlechromes:// for https
+                const https = location.href.replace(/^https:\/\//, 'googlechromes://');
+                return https;
+            })();
+
+            const modalHtml = `
+                <div class="popup-overlay" id="inAppBrowserModal">
+                    <div class="popup-content">
+                        <h3 style="margin-top:0;">外部ブラウザで開いてください</h3>
+                        <p style="margin:10px 0; font-size:14px; color:#333;">
+                            この画面はアプリ内ブラウザでは Google ログインがブロックされます。以下のいずれかを実行してください。
+                        </p>
+                        <div style="display:flex; gap:8px; flex-wrap:wrap; margin:10px 0;">
+                            <button id="copyUrlBtn" class="universal-copy-btn" style="background:#6c757d;color:#fff;border:none;padding:8px 12px;border-radius:5px;cursor:pointer;">URLをコピー</button>
+                            ${isAndroid ? `<a href="${androidIntent}" target="_blank" style="text-decoration:none;"><button class="universal-copy-btn" style="background:#28a745;color:#fff;border:none;padding:8px 12px;border-radius:5px;cursor:pointer;">Chromeで開く (Android)</button></a>` : ''}
+                            ${isiOS ? `<a href="${iosChromeLink}" target="_blank" style="text-decoration:none;"><button class="universal-copy-btn" style="background:#007aff;color:#fff;border:none;padding:8px 12px;border-radius:5px;cursor:pointer;">Chromeで開く (iOS)</button></a>` : ''}
+                        </div>
+                        <p style="font-size:12px; color:#555;">
+                            - iOS: 右上のメニューから「ブラウザで開く」や「Safariで開く」を選択してください。<br>
+                            - Android: 上のボタンで Chrome を開けない場合は、右上メニューから「外部ブラウザで開く」を選択してください。
+                        </p>
+                        <div style="text-align:right; margin-top:10px;">
+                            <button class="close-popup" onclick="(function(){ const m=document.getElementById('inAppBrowserModal'); if(m) m.remove(); })()">閉じる</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+            const copyBtn = document.getElementById('copyUrlBtn');
+            if (copyBtn) {
+                copyBtn.addEventListener('click', async () => {
+                    try {
+                        await navigator.clipboard.writeText(url);
+                        alert('✅ URLをコピーしました。外部ブラウザで貼り付けて開いてください。');
+                    } catch (_) {
+                        alert('URLのコピーに失敗しました。手動でURLをコピーしてください。');
+                    }
+                });
+            }
         }
 
         // 入力方法選択機能
