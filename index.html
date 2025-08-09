@@ -367,6 +367,41 @@
         let selectedTimingValue = '';
         let inputMethod = 'file'; // デフォルトはファイル入力
 
+        // デバイス言語を使用
+        if (auth && typeof auth.useDeviceLanguage === 'function') {
+            auth.useDeviceLanguage();
+        }
+
+        // アプリ内ブラウザ（埋め込みWebView等）の簡易検出
+        function isInAppBrowser() {
+            const userAgent = navigator.userAgent || navigator.vendor || window.opera || '';
+            const patterns = [
+                /FBAN|FBAV|Facebook/i,   // Facebook
+                /Instagram/i,            // Instagram
+                /Line/i,                 // LINE
+                /Twitter/i,              // X(Twitter)
+                /KAKAOTALK/i,            // KakaoTalk
+                /MicroMessenger/i,       // WeChat
+                /Snapchat/i,
+                /GSA/i,                  // Google App
+                /wv/i                    // Android WebView
+            ];
+            return patterns.some(re => re.test(userAgent));
+        }
+
+        // 外部ブラウザで開くようユーザーへ案内
+        function promptOpenInBrowser() {
+            const url = window.location.href;
+            log('🚫 アプリ内ブラウザを検出: 外部ブラウザで開いてください');
+            const message = [
+                'この画面はアプリ内ブラウザではGoogleログインできません。',
+                '右上の…メニューから「ブラウザで開く」を選び、Safari/Chromeで開いてください。',
+                'URLはクリップボードにコピーされます。'
+            ].join('\n');
+            try { navigator.clipboard.writeText(url); } catch (_) {}
+            alert(message);
+        }
+
         // 入力方法選択機能
         window.selectInputMethod = (method) => {
             inputMethod = method;
@@ -509,6 +544,11 @@
                         error.code === 'auth/unauthorized-domain') {
                         alert('このブラウザ環境ではGoogleログインがサポートされていません。\nデスクトップサイトモードをお試しください。');
                     }
+                    if (error.code === 'auth/unauthorized-domain') {
+                        const host = window.location.hostname;
+                        log(`⚠️ 未許可ドメインの可能性: ${host}`);
+                        log('✅ Firebase Console > Authentication > 設定 > 承認済みドメイン に現在のドメインを追加してください');
+                    }
                 }
             });
 
@@ -534,6 +574,12 @@
                 // モバイルブラウザの検出
                 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
                 
+                // アプリ内ブラウザはポリシーで拒否されるため外部ブラウザへ誘導
+                if (isInAppBrowser()) {
+                    promptOpenInBrowser();
+                    return;
+                }
+
                 if (isMobile) {
                     // モバイルの場合はsignInWithRedirectを使用
                     log('📱 モバイルブラウザ検出 - リダイレクト方式を使用');
@@ -547,6 +593,11 @@
                 log(`❌ ログインエラー: ${error.message}`);
                 if (error.code === 'auth/operation-not-supported-in-this-environment') {
                     alert('このブラウザ環境ではGoogleログインがサポートされていません。\n別のブラウザをお試しください。');
+                }
+                if (error.code === 'auth/unauthorized-domain') {
+                    const host = window.location.hostname;
+                    log(`⚠️ 未許可ドメインの可能性: ${host}`);
+                    alert(`このドメイン (${host}) はFirebase Authenticationで未許可です。\nFirebase Console > Authentication > 設定 > 承認済みドメイン に追加してください。`);
                 }
             }
         };
