@@ -334,7 +334,7 @@
 
     <script>
         // アプリバージョン（ここだけ変更すればタイトルとヘッダーが自動更新）
-        const APP_VERSION = '0.43';
+        const APP_VERSION = '0.44';
         
         // バージョンを表示
         document.addEventListener('DOMContentLoaded', () => {
@@ -366,11 +366,47 @@
         let currentUser = null;
         let selectedTimingValue = '';
         let inputMethod = 'file'; // デフォルトはファイル入力
+        let currentAuthPersistence = 'UNKNOWN';
+
+        // 永続ログ（リロード後も残す）
+        const LOG_STORAGE_KEY = 'eme_tool_logs';
+        function appendLogStorage(line) {
+            try {
+                const raw = localStorage.getItem(LOG_STORAGE_KEY);
+                const arr = raw ? JSON.parse(raw) : [];
+                arr.push({ t: Date.now(), m: line });
+                if (arr.length > 1000) arr.splice(0, arr.length - 1000);
+                localStorage.setItem(LOG_STORAGE_KEY, JSON.stringify(arr));
+            } catch (_) {}
+        }
 
         // デバイス言語を使用
         if (auth && typeof auth.useDeviceLanguage === 'function') {
             auth.useDeviceLanguage();
         }
+
+        // 認証永続化（LOCAL→SESSION→NONEの順で設定）
+        (async () => {
+            try {
+                await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+                currentAuthPersistence = 'LOCAL';
+                log('✅ Auth persistence: LOCAL');
+            } catch (e1) {
+                try {
+                    await auth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
+                    currentAuthPersistence = 'SESSION';
+                    log('⚠️ Auth persistence: SESSION (LOCAL失敗)');
+                } catch (e2) {
+                    try {
+                        await auth.setPersistence(firebase.auth.Auth.Persistence.NONE);
+                        currentAuthPersistence = 'NONE';
+                        log('⚠️ Auth persistence: NONE (LOCAL/SESSION失敗)');
+                    } catch (e3) {
+                        log('❌ Auth persistence 設定に失敗');
+                    }
+                }
+            }
+        })();
 
         // アプリ内ブラウザ（埋め込みWebView等）の簡易検出
         function isInAppBrowser() {
@@ -585,6 +621,7 @@
             .catch((error) => {
                 if (error.code && error.code !== 'auth/no-auth-event') {
                     log(`❌ リダイレクトエラー: ${error.code} - ${error.message}`);
+                    try { localStorage.setItem('eme_last_auth_error', JSON.stringify({ code: error.code, message: error.message })); } catch(_) {}
                     if (error.code === 'auth/operation-not-supported-in-this-environment' || 
                         error.code === 'auth/unauthorized-domain') {
                         alert('このブラウザ環境ではGoogleログインがサポートされていません。\nデスクトップサイトモードをお試しください。');
@@ -602,10 +639,12 @@
             currentUser = user;
             if (user) {
                 log(`✅ ログイン成功: ${user.displayName}`);
+                log(`🧩 Auth persistence: ${currentAuthPersistence}`);
                 showUserInterface(user);
                 loadUserFileData();
             } else {
                 log('❌ ログアウトしました');
+                log(`🧩 Auth persistence: ${currentAuthPersistence}`);
                 showLoginInterface();
             }
         });
@@ -636,6 +675,7 @@
                 }
             } catch (error) {
                 log(`❌ ログインエラー: ${error.message}`);
+                try { localStorage.setItem('eme_last_auth_error', JSON.stringify({ code: error.code, message: error.message })); } catch(_) {}
                 if (error.code === 'auth/operation-not-supported-in-this-environment') {
                     alert('このブラウザ環境ではGoogleログインがサポートされていません。\n別のブラウザをお試しください。');
                 }
@@ -646,6 +686,17 @@
                 }
             }
         };
+
+        // グローバルエラーハンドラ（ログ消失対策）
+        window.addEventListener('error', (e) => {
+            log(`💥 JSエラー: ${e.message} @ ${e.filename}:${e.lineno}`);
+            try { localStorage.setItem('eme_last_js_error', JSON.stringify({ message: e.message, file: e.filename, line: e.lineno })); } catch(_) {}
+        });
+        window.addEventListener('unhandledrejection', (e) => {
+            const msg = (e && e.reason && (e.reason.message || e.reason.code || String(e.reason))) || 'Unhandled promise rejection';
+            log(`💥 Promise未処理エラー: ${msg}`);
+            try { localStorage.setItem('eme_last_promise_error', JSON.stringify(e && e.reason ? e.reason : { message: String(msg) })); } catch(_) {}
+        });
 
         // ログアウト
         window.handleLogout = async () => {
@@ -1326,7 +1377,28 @@
             logArea.innerHTML += `[${timestamp}] ${message}<br>`;
             logArea.scrollTop = logArea.scrollHeight;
             console.log(message);
+            appendLogStorage(`[${timestamp}] ${message}`);
         }
+
+        // 起動時に過去ログを復元
+        (function restoreLogs() {
+            try {
+                const raw = localStorage.getItem(LOG_STORAGE_KEY);
+                if (raw) {
+                    const arr = JSON.parse(raw);
+                    if (Array.isArray(arr) && arr.length > 0) {
+                        const logArea = document.getElementById('logArea');
+                        logArea.innerHTML += `—— 前回ログ復元 (${arr.length}件) ——<br>`;
+                        arr.slice(-200).forEach(item => {
+                            const ts = new Date(item.t).toLocaleTimeString();
+                            const msg = typeof item.m === 'string' ? item.m.replace(/^\[.*?\]\s*/, '') : JSON.stringify(item.m);
+                            logArea.innerHTML += `[${ts}] ${msg}<br>`;
+                        });
+                        logArea.innerHTML += `—— 復元完了 ——<br>`;
+                    }
+                }
+            } catch (_) {}
+        })();
 
         // ログコピー機能
         window.copyLogs = () => {
@@ -1515,6 +1587,7 @@ Firebase設定:
 ${currentUser ? `- UID: ${currentUser.uid.substring(0,8)}...\n- Email: ${currentUser.email}\n- 表示名: ${currentUser.displayName}` : ''}
 
 Firebase SDK: ${typeof firebase !== 'undefined' ? '読み込み済み' : '読み込みエラー'}
+Auth Persistence: ${currentAuthPersistence}
 Web Storage: ${(() => {
     try {
         localStorage.setItem('test', 'test');
@@ -1524,6 +1597,10 @@ Web Storage: ${(() => {
         return '無効';
     }
 })()}
+
+直近の認証エラー: ${(() => { try { const e = JSON.parse(localStorage.getItem('eme_last_auth_error')||'null'); return e ? `${e.code} - ${e.message}` : 'なし'; } catch(_) { return '取得失敗'; } })()}
+直近のJSエラー: ${(() => { try { const e = JSON.parse(localStorage.getItem('eme_last_js_error')||'null'); return e ? `${e.message} @ ${e.file}:${e.line}` : 'なし'; } catch(_) { return '取得失敗'; } })()}
+直近のPromiseエラー: ${(() => { try { const e = JSON.parse(localStorage.getItem('eme_last_promise_error')||'null'); return e ? JSON.stringify(e) : 'なし'; } catch(_) { return '取得失敗'; } })()}
 
 ログ内容:
 ${document.getElementById('logArea').innerText}`;
