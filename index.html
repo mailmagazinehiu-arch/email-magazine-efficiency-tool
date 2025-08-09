@@ -334,7 +334,7 @@
 
     <script>
         // アプリバージョン（ここだけ変更すればタイトルとヘッダーが自動更新）
-        const APP_VERSION = '0.44';
+        const APP_VERSION = '0.45';
         
         // バージョンを表示
         document.addEventListener('DOMContentLoaded', () => {
@@ -408,9 +408,9 @@
             }
         })();
 
-        // アプリ内ブラウザ（埋め込みWebView等）の簡易検出
+        // アプリ内ブラウザ（埋め込みWebView等）の簡易検出 + モバイル/OS判定の強化
         function isInAppBrowser() {
-            const userAgent = navigator.userAgent || navigator.vendor || window.opera || '';
+            const ua = navigator.userAgent || navigator.vendor || window.opera || '';
             const patterns = [
                 /FBAN|FBAV|Facebook/i,   // Facebook
                 /Instagram/i,            // Instagram
@@ -422,7 +422,21 @@
                 /GSA/i,                  // Google App
                 /wv/i                    // Android WebView
             ];
-            return patterns.some(re => re.test(userAgent));
+            return patterns.some(re => re.test(ua));
+        }
+
+        function isMobileLike() {
+            const ua = navigator.userAgent || '';
+            const isAndroid = /Android/i.test(ua);
+            // iPadOS 13+ は Mac と名乗る場合があるため maxTouchPoints で補正
+            const isiOS = /iPhone|iPad|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+            return isAndroid || isiOS;
+        }
+
+        function isSecureContextForAuth() {
+            // ローカル開発(localhost/127.0.0.1)はHTTP許容、それ以外はHTTPS必須
+            const isLocalhost = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+            return location.protocol === 'https:' || isLocalhost;
         }
 
         // 外部ブラウザで開くようユーザーへ案内
@@ -654,25 +668,21 @@
             try {
                 log('🔐 Googleログイン開始...');
                 const provider = new firebase.auth.GoogleAuthProvider();
-                
-                // モバイルブラウザの検出
-                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-                
+
+                // 事前チェック: HTTPSでない公開環境は失敗しやすい
+                if (!isSecureContextForAuth()) {
+                    log('⚠️ 非HTTPS環境のため認証が失敗する可能性があります');
+                    alert('このページはHTTPSで開いてください。開発中は http://localhost を使用してください。');
+                }
                 // アプリ内ブラウザはポリシーで拒否されるため外部ブラウザへ誘導
                 if (isInAppBrowser()) {
                     promptOpenInBrowser();
                     return;
                 }
-
-                if (isMobile) {
-                    // モバイルの場合はsignInWithRedirectを使用
-                    log('📱 モバイルブラウザ検出 - リダイレクト方式を使用');
-                    await auth.signInWithRedirect(provider);
-                } else {
-                    // PCの場合は従来のポップアップを使用
-                    const result = await auth.signInWithPopup(provider);
-                    log(`✅ ログイン成功: ${result.user.displayName}`);
-                }
+                // 全環境でリダイレクト方式を使用
+                log('🔁 リダイレクト方式でGoogleに遷移します');
+                await auth.signInWithRedirect(provider);
+                return;
             } catch (error) {
                 log(`❌ ログインエラー: ${error.message}`);
                 try { localStorage.setItem('eme_last_auth_error', JSON.stringify({ code: error.code, message: error.message })); } catch(_) {}
